@@ -15,16 +15,14 @@
                       WindowTransitionsEnabled="False">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="16" />
+            <RowDefinition Height="20" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="16" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="auto" />
         </Grid.ColumnDefinitions>
-        <local:TabBar x:Name="tabBarLeft" Grid.Row="0" Grid.Column="0" />
-        <local:TabBar x:Name="tabBarRight" Grid.Row="0" Grid.Column="1" />
+        <local:TabBar x:Name="tabBar" Grid.Row="0" Grid.Column="0" />
         <Grid Grid.Row="1" Grid.ColumnSpan="2">
             <local:TerminalControl x:Name="terminalControl"
                                    PreviewMouseWheel="terminalControl_PreviewMouseWheel" />

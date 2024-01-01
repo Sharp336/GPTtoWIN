@@ -8,8 +8,6 @@ namespace tterm.Ui.Models
     [ImplementPropertyChanged]
     internal class TabDataItem
     {
-        public TerminalSession Session { get; set; }
-        public bool IsActive { get; set; }
         public string Title { get; set; }
         public PackIconMaterialKind Image { get; set; }
 

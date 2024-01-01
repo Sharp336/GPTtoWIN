@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Windows;
 using tterm.Extensions;
 
@@ -9,21 +6,12 @@ namespace tterm.Terminal
 {
     internal class TerminalSessionManager
     {
-        private readonly List<TerminalSession> _sessions = new List<TerminalSession>();
-
-        public IList<TerminalSession> Sessions
-        {
-            get => new ReadOnlyCollection<TerminalSession>(_sessions);
-        }
-
+        
         public TerminalSession CreateSession(TerminalSize size, Profile profile)
         {
             PrepareTTermEnvironment(profile);
 
             var session = new TerminalSession(size, profile);
-            session.Finished += OnSessionFinished;
-
-            _sessions.Add(session);
             return session;
         }
 
@@ -43,12 +31,6 @@ namespace tterm.Terminal
                 path = ";" + path;
             }
             env[EnvironmentVariables.PATH] = app.AssemblyDirectory + path;
-        }
-
-        private void OnSessionFinished(object sender, EventArgs e)
-        {
-            var session = sender as TerminalSession;
-            _sessions.Remove(session);
         }
     }
 }

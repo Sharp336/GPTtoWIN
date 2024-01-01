@@ -25,14 +25,13 @@ namespace tterm.Ui
         private Size _consoleSizeDelta;
 
         private ConfigurationService _configService = new ConfigurationService();
-        private readonly ObservableCollection<TabDataItem> _leftTabs = new ObservableCollection<TabDataItem>();
-        private readonly List<TabDataItem> _rightTabs = new List<TabDataItem>();
+        private readonly ObservableCollection<TabDataItem> _tabs = new ObservableCollection<TabDataItem>();
 
         private TerminalSessionManager _sessionMgr = new TerminalSessionManager();
         private TerminalSession _currentSession;
-        private TabDataItem _currentTab;
         private TerminalSize _terminalSize;
         private Profile _defaultProfile;
+        private TabDataItem _addSession = new TabDataItem() { Image = PackIconMaterialKind.Plus };
 
         public bool Ready
         {
@@ -60,19 +59,9 @@ namespace tterm.Ui
 
             resizeHint.Visibility = Visibility.Hidden;
 
-            tabBarLeft.DataContext = _leftTabs;
-            tabBarRight.DataContext = _rightTabs;
+            tabBar.DataContext = _tabs;
 
-            var newSessionTab = new TabDataItem()
-            {
-                Image = PackIconMaterialKind.Plus
-            };
-            newSessionTab.Click += NewSessionTab_Click;
-            _leftTabs.Add(newSessionTab);
-            _rightTabs.Add(new TabDataItem()
-            {
-                Image = PackIconMaterialKind.Settings
-            });
+            _addSession.Click += NewSessionTab_Click;
         }
 
         protected override void OnInitialized(EventArgs e)
@@ -120,43 +109,24 @@ namespace tterm.Ui
             session.TitleChanged += OnSessionTitleChanged;
             session.Finished += OnSessionFinished;
 
-            TabDataItem tab = new TabDataItem()
-            {
-                IsActive = true,
-                Title = string.Empty,
-                Session = session
-            };
-            tab.Click += OnSessionTabClick;
-            _leftTabs.Insert(_leftTabs.Count - 1, tab);
-
-            ChangeSession(session, tab);
+            ChangeSession(session);
         }
 
-        private void OnSessionTabClick(object sender, EventArgs e)
-        {
-            var tab = sender as TabDataItem;
-            var session = tab.Session;
-            ChangeSession(session, tab);
-        }
-
-        private void ChangeSession(TerminalSession session, TabDataItem tab)
+        private void ChangeSession(TerminalSession session)
         {
             if (session != _currentSession)
             {
                 if (_currentSession != null)
                 {
                     _currentSession.Active = false;
-                    _currentTab.IsActive = false;
                 }
 
                 _currentSession = session;
-                _currentTab = tab;
 
                 if (session != null)
                 {
                     session.Active = true;
                     session.Size = _terminalSize;
-                    tab.IsActive = true;
                 }
 
                 terminalControl.Session = session;
@@ -172,26 +142,14 @@ namespace tterm.Ui
         private void OnSessionTitleChanged(object sender, EventArgs e)
         {
             var session = sender as TerminalSession;
-            int index = _sessionMgr.Sessions.IndexOf(session);
-            _leftTabs[index].Title = _currentSession.Title;
+            this.Title = session.Title;
         }
 
         private void OnSessionFinished(object sender, EventArgs e)
         {
             var session = sender as TerminalSession;
-            int index = _leftTabs.IndexOf(x => x.Session == session);
-            _leftTabs.RemoveAt(index);
-
-            var sessions = _sessionMgr.Sessions;
-            if (sessions.Count > 0)
-            {
-                int fallbackIndex = Math.Max(0, index - 1);
-                ChangeSession(sessions[fallbackIndex], _leftTabs[fallbackIndex]);
-            }
-            else
-            {
-                ChangeSession(null, null);
-            }
+            ChangeSession(null);
+            _tabs.Add(_addSession);
         }
 
         private static Profile ExpandVariables(Profile profile)
@@ -360,91 +318,9 @@ namespace tterm.Ui
 
         protected override void OnPreviewKeyDown(KeyEventArgs e)
         {
-            var modifiers = Keyboard.Modifiers;
-            if (modifiers.HasFlag(ModifierKeys.Control))
-            {
-                switch (e.Key)
-                {
-                    case Key.Tab:
-                        {
-                            var direction = modifiers.HasFlag(ModifierKeys.Shift) ?
-                                CycleDirection.Previous : CycleDirection.Next;
-                            CycleSession(direction);
-                            e.Handled = true;
-                            break;
-                        }
-                    case Key.PageUp:
-                        {
-                            int direction = modifiers.HasFlag(ModifierKeys.Shift) ? -1 : 1;
-                            CycleSession(CycleDirection.Previous);
-                            e.Handled = true;
-                            break;
-                        }
-                    case Key.PageDown:
-                        {
-                            CycleSession(CycleDirection.Next);
-                            e.Handled = true;
-                            break;
-                        }
-                    case Key.N:
-                        {
-                            var app = Application.Current as App;
-                            app.StartNewInstance();
-                            e.Handled = true;
-                            break;
-                        }
-                    case Key.T:
-                        {
-                            CreateSession(_defaultProfile);
-                            e.Handled = true;
-                            break;
-                        }
-                    case Key.W:
-                        {
-                            if (_currentSession != null)
-                            {
-                                CloseSession(_currentSession);
-                            }
-                            e.Handled = true;
-                            break;
-                        }
-                }
-            }
             base.OnPreviewKeyDown(e);
         }
 
-        private enum CycleDirection { Previous, Next}
-
-        private void CycleSession(CycleDirection direction)
-        {
-            int numSessions = _sessionMgr.Sessions.Count;
-            if (numSessions > 1)
-            {
-                int sessionIndex = _sessionMgr.Sessions.IndexOf(_currentSession);
-                if (sessionIndex != -1)
-                {
-                    if (direction == CycleDirection.Previous)
-                    {
-                        sessionIndex--;
-                        if (sessionIndex < 0)
-                        {
-                            sessionIndex = numSessions - 1;
-                        }
-                    }
-                    else
-                    {
-                        sessionIndex++;
-                        if (sessionIndex >= numSessions)
-                        {
-                            sessionIndex = 0;
-                        }
-                    }
-
-                    var newSession = _sessionMgr.Sessions[sessionIndex];
-                    var newTab = _leftTabs[sessionIndex];
-                    ChangeSession(newSession, newTab);
-                }
-            }
-        }
+        
     }
 }
