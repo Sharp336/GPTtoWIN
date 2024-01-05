@@ -320,7 +320,11 @@ namespace tterm.Ui
         private void OnSessionTitleChanged(object sender, EventArgs e)
         {
             var session = sender as TerminalSession;
-            this.Title = session.Title;
+            
+            Dispatcher.InvokeAsync(() =>
+            {
+                this.Title = session.Title;
+            });
         }
 
         private void OnSessionFinished(object sender, EventArgs e)
