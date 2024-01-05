@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -43,6 +45,12 @@ namespace tterm.Ui
         private int _updateAvailable;
 
         private int _focusTick;
+
+        public bool isAutoSendOn = false;
+        private StringBuilder _lastCollectedResult = new StringBuilder();
+        private TerminalTagArray _lastCommandLineTags = new TerminalTagArray();
+        public event EventHandler<string> LastResultCollected;
+        private static Regex regex = new Regex(@"[a-zA-Z]:\\[^>]+>$");
 
         public TerminalSession Session
         {
@@ -318,6 +326,12 @@ namespace tterm.Ui
                     for (int y = 0; y < lineCount; y++)
                     {
                         _lines[y].Tags = lineTags[y];
+                        if ( isAutoSendOn && Buffer.CursorY == y && regex.IsMatch(lineTags[y].ToString().Trim()) )
+                        {
+                            Console.WriteLine("CollectLastResult(false)");
+                            CollectLastResult(false);
+                        }
+
                     }
 
                     _lastUpdateTick = Environment.TickCount;
@@ -332,6 +346,58 @@ namespace tterm.Ui
                 });
             }
         }
+
+        public string CollectLastResult(bool isScrollRequired = true)
+        {
+            if (_lastCollectedResult.Length != 0) return _lastCollectedResult.ToString();
+
+            Console.WriteLine("Collecting new result");
+
+            if (isScrollRequired)
+            {
+                _session.Write(" ");
+                _session.Write(C0.DEL.ToString());
+            }
+
+            bool isLastCommandLineFound = false;
+
+            for (int i = Buffer.CursorY; i >= 0; i--)
+            {
+                var lineContent = Buffer.GetFormattedLine(i).ToString();
+                _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
+
+                if (i != Buffer.CursorY && _lines[i].Tags.Equals(_lastCommandLineTags))
+                {
+                    isLastCommandLineFound = true;
+                    break;
+                }
+
+            }
+            if (!isLastCommandLineFound)
+            {
+                for (int i = Buffer.History.Count - 1; i >= 0; i--)
+                {
+                    var lineContent = Buffer.History[i].ToString();
+                    _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
+
+                    if (i != Buffer.CursorY && lineContent.Trim() == _lastCommandLineTags.ToString().Trim())
+                    {
+                        break;
+                    }
+                }
+            }
+
+            var result = _lastCollectedResult.ToString();
+
+            if (isAutoSendOn)
+            {
+                LastResultCollected(this, result);
+            }
+
+            return result;
+        }
+
+
 
         #endregion
 
@@ -550,6 +616,8 @@ namespace tterm.Ui
                     text = $"{C0.ESC}[6~";
                     break;
                 case Key.Return:
+                    _lastCollectedResult.Clear();
+                    _lastCommandLineTags = _lines[Buffer.CursorY].Tags.GetAsSingleTagInArray();
                     text = C0.CR.ToString();
                     break;
                 case Key.Space:

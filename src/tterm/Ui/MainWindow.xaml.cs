@@ -44,7 +44,7 @@ namespace tterm.Ui
         private HttpListener _httpListener;
         private WebSocket _currentWebSocket;
         private const int BufferSize = 4096;
-        string _lastRecievedMessage = "echo bebra";
+        string _lastRecievedMessage = "";
 
         public bool Ready
         {
@@ -86,7 +86,7 @@ namespace tterm.Ui
             tabBar.DataContext = _tabs;
 
             InitializeTab("Starting WebSocket server", Test_Click);
-            InitializeTab("Auto-send output", null);
+            InitializeTab("Auto-send output", ToggleAutoSend_Click);
             InitializeTab("Send last output", SendLastOutputManually_Click);
             InitializeTab("Auto-type received", AutoTypeToggleTab_Click);
             InitializeTab("Auto-execute received", AutoExecuteToggleTab_Click, isDisabled: true);
@@ -113,11 +113,24 @@ namespace tterm.Ui
         private void Test_Click(object sender, EventArgs e)
         {
             TypeAndMaybeExecute("dir", true);
+            terminalControl.Focus();
         }
 
         private void NewSessionTab_Click(object sender, EventArgs e)
         {
             CreateSession(_defaultProfile);
+            terminalControl.Focus();
+        }
+
+        private void ToggleAutoSend_Click(object sender, EventArgs e)
+        {
+            var tab = sender as TabDataItem;
+            if (tab != null)
+            {
+                tab.IsActive = !tab.IsActive;
+                terminalControl.isAutoSendOn = tab.IsActive;
+            }
+            terminalControl.Focus();
         }
 
         private void SendLastOutputManually_Click(object sender, EventArgs e)
@@ -125,11 +138,10 @@ namespace tterm.Ui
             var tab = sender as TabDataItem;
             if (tab != null)
             {
-                //var message = terminalControl.LastOutput;
-                //Console.WriteLine("\nTrying to send:");
-                //Console.WriteLine(message);
-                //SendMessageToClient(message);
+                var message = terminalControl.CollectLastResult();
+                SendMessageToClient(message);
             }
+            terminalControl.Focus();
         }
 
 
@@ -141,24 +153,28 @@ namespace tterm.Ui
                 tab.IsActive = !tab.IsActive;
                 _tabs[4].IsDisabled = !tab.IsActive;
             }
+            terminalControl.Focus();
         }
 
         private void AutoExecuteToggleTab_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
             if (tab != null && !tab.IsDisabled) tab.IsActive = !tab.IsActive;
+            terminalControl.Focus();
         }
 
         private void TypeRecievedManuallyTab_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
             if (tab != null && !tab.IsDisabled) TypeAndMaybeExecute(_lastRecievedMessage, false);
+            terminalControl.Focus();
         }
 
         private void ExecuteManuallyTab_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
             if (tab != null && !tab.IsDisabled) TypeAndMaybeExecute(_lastRecievedMessage, true);
+            terminalControl.Focus();
         }
 
         private void TypeAndMaybeExecute(string command, bool execute = false)
@@ -169,6 +185,7 @@ namespace tterm.Ui
                 _currentSession.Write(command);
                 if (execute) _currentSession.Write(C0.CR.ToString());
             }
+            terminalControl.Focus();
         }
 
         protected override void OnSourceInitialized(EventArgs e)
@@ -265,9 +282,10 @@ namespace tterm.Ui
 
         private async Task SendMessageToClient(string message)
         {
+            Console.WriteLine($"\nTrying to send:\n{message}");
             if (_currentWebSocket != null && _currentWebSocket.State == WebSocketState.Open && !string.IsNullOrEmpty(message))
             {
-                Debug.WriteLine($"Sent message to client: {message}");
+                Debug.WriteLine($"Sent message to client");
                 var serverMessageBytes = Encoding.UTF8.GetBytes(message);
                 await _currentWebSocket.SendAsync(new ArraySegment<byte>(serverMessageBytes, 0, serverMessageBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
             }
@@ -288,6 +306,8 @@ namespace tterm.Ui
             session.Finished += OnSessionFinished;
 
             ChangeSession(session);
+            
+            
         }
 
         private void ChangeSession(TerminalSession session)
@@ -308,8 +328,14 @@ namespace tterm.Ui
                 }
 
                 terminalControl.Session = session;
+                terminalControl.LastResultCollected += SendAutoCollectedResult;
                 terminalControl.Focus();
             }
+        }
+
+        private void SendAutoCollectedResult(object sender, string result)
+        {
+            SendMessageToClient(result);
         }
 
         private void CloseSession(TerminalSession session)

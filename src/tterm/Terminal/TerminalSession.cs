@@ -25,6 +25,7 @@ namespace tterm.Terminal
         public bool Active { get; set; }
         public bool Connected { get; private set; }
         public bool ErrorOccured { get; private set; }
+
         public Exception Exception { get; private set; }
 
         public TerminalBuffer Buffer { get; }

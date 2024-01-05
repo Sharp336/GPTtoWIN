@@ -10,11 +10,11 @@ namespace tterm.Terminal
 {
     internal class TerminalBuffer
     {
-        private const int MaxHistorySize = 1024;
+        private const int MaxHistorySize = 4096;
 
         private TerminalBufferChar[] _buffer;
         private TerminalSize _size;
-        private readonly List<TerminalBufferLine> _history = new List<TerminalBufferLine>();
+        public readonly List<TerminalBufferLine> History = new List<TerminalBufferLine>();
 
         public bool ShowCursor { get; set; }
         public int CursorX { get; set; }
@@ -333,12 +333,12 @@ namespace tterm.Terminal
         {
             if (y < 0)
             {
-                int historyIndex = _history.Count + y;
+                int historyIndex = History.Count + y;
                 if (historyIndex < 0)
                 {
                     return (null, 0, 0);
                 }
-                var historyLine = _history[historyIndex];
+                var historyLine = History[historyIndex];
                 var buffer = historyLine.Buffer;
                 return (buffer, 0, Math.Min(buffer.Length, _size.Columns));
             }
@@ -427,17 +427,17 @@ namespace tterm.Terminal
 
         private void AddHistory(TerminalBufferLine line)
         {
-            if (_history.Count >= MaxHistorySize)
+            if (History.Count >= MaxHistorySize)
             {
-                _history.RemoveAt(0);
+                History.RemoveAt(0);
             }
-            _history.Add(line);
+            History.Add(line);
         }
 
         public void Scroll(int scroll)
         {
             int top = WindowTop + scroll;
-            top = Math.Max(top, -_history.Count);
+            top = Math.Max(top, -History.Count);
             // top = Math.Min(top, _size.Rows - 1);
             top = Math.Min(top, CursorY);
             WindowTop = top;
