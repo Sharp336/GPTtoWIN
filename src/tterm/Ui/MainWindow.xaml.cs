@@ -1,10 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
+using System.Net;
+using System.Net.WebSockets;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using MahApps.Metro.IconPacks;
+using tterm.Ansi;
 using tterm.Extensions;
 using tterm.Terminal;
 using tterm.Ui.Models;
@@ -31,7 +38,13 @@ namespace tterm.Ui
         private TerminalSession _currentSession;
         private TerminalSize _terminalSize;
         private Profile _defaultProfile;
-        private TabDataItem _addSession = new TabDataItem() { Image = PackIconMaterialKind.Plus };
+
+        private TabDataItem _addSessionTab = new TabDataItem() { Image = PackIconMaterialKind.Plus };
+
+        private HttpListener _httpListener;
+        private WebSocket _currentWebSocket;
+        private const int BufferSize = 4096;
+        string _lastRecievedMessage = "echo bebra";
 
         public bool Ready
         {
@@ -59,9 +72,7 @@ namespace tterm.Ui
 
             resizeHint.Visibility = Visibility.Hidden;
 
-            tabBar.DataContext = _tabs;
-
-            _addSession.Click += NewSessionTab_Click;
+            InitializeTabs();
         }
 
         protected override void OnInitialized(EventArgs e)
@@ -70,9 +81,94 @@ namespace tterm.Ui
             _tickInitialised = Environment.TickCount;
         }
 
+        private void InitializeTabs()
+        {
+            tabBar.DataContext = _tabs;
+
+            InitializeTab("Starting WebSocket server", Test_Click);
+            InitializeTab("Auto-send output", null);
+            InitializeTab("Send last output", SendLastOutputManually_Click);
+            InitializeTab("Auto-type received", AutoTypeToggleTab_Click);
+            InitializeTab("Auto-execute received", AutoExecuteToggleTab_Click, isDisabled: true);
+            InitializeTab("Type received", TypeRecievedManuallyTab_Click, isDisabled: true);
+            InitializeTab("Execute received message", ExecuteManuallyTab_Click, isDisabled: true);
+        }
+
+        private void InitializeTab(string title, EventHandler clickHandler, bool isDisabled = false)
+        {
+            var tab = new TabDataItem
+            {
+                Title = title,
+                IsDisabled = isDisabled
+            };
+
+            if (clickHandler != null)
+            {
+                tab.Click += clickHandler;
+            }
+
+            _tabs.Add(tab);
+        }
+
+        private void Test_Click(object sender, EventArgs e)
+        {
+            TypeAndMaybeExecute("dir", true);
+        }
+
         private void NewSessionTab_Click(object sender, EventArgs e)
         {
             CreateSession(_defaultProfile);
+        }
+
+        private void SendLastOutputManually_Click(object sender, EventArgs e)
+        {
+            var tab = sender as TabDataItem;
+            if (tab != null)
+            {
+                //var message = terminalControl.LastOutput;
+                //Console.WriteLine("\nTrying to send:");
+                //Console.WriteLine(message);
+                //SendMessageToClient(message);
+            }
+        }
+
+
+        private void AutoTypeToggleTab_Click(object sender, EventArgs e)
+        {
+            var tab = sender as TabDataItem;
+            if (tab != null)
+            {
+                tab.IsActive = !tab.IsActive;
+                _tabs[4].IsDisabled = !tab.IsActive;
+            }
+        }
+
+        private void AutoExecuteToggleTab_Click(object sender, EventArgs e)
+        {
+            var tab = sender as TabDataItem;
+            if (tab != null && !tab.IsDisabled) tab.IsActive = !tab.IsActive;
+        }
+
+        private void TypeRecievedManuallyTab_Click(object sender, EventArgs e)
+        {
+            var tab = sender as TabDataItem;
+            if (tab != null && !tab.IsDisabled) TypeAndMaybeExecute(_lastRecievedMessage, false);
+        }
+
+        private void ExecuteManuallyTab_Click(object sender, EventArgs e)
+        {
+            var tab = sender as TabDataItem;
+            if (tab != null && !tab.IsDisabled) TypeAndMaybeExecute(_lastRecievedMessage, true);
+        }
+
+        private void TypeAndMaybeExecute(string command, bool execute = false)
+        {
+            if (!string.IsNullOrWhiteSpace(command))
+            {
+                _currentSession.Write($"{C0.ESC}{C0.ESC}{C0.ESC}");
+                _currentSession.Write(command);
+                if (execute) _currentSession.Write(C0.CR.ToString());
+            }
         }
 
         protected override void OnSourceInitialized(EventArgs e)
@@ -93,6 +189,88 @@ namespace tterm.Ui
             }
             _defaultProfile = ExpandVariables(profile);
             CreateSession(_defaultProfile);
+
+            StartWebSocketServer();
+        }
+
+        private async void StartWebSocketServer()
+        {
+            _httpListener = new HttpListener();
+            _httpListener.Prefixes.Add("http://localhost:5000/");
+            _httpListener.Start();
+
+            _tabs[0].Title = "WebSocket server started";
+
+            await AcceptClients(_httpListener);
+        }
+
+        private async Task AcceptClients(HttpListener httpListener)
+        {
+            while (true)
+            {
+                var httpContext = await httpListener.GetContextAsync();
+
+                if (httpContext.Request.IsWebSocketRequest)
+                {
+                    var webSocketContext = await httpContext.AcceptWebSocketAsync(null);
+                    _currentWebSocket = webSocketContext.WebSocket;
+                    var handleWebSocketTask = HandleWebSocketConnection(_currentWebSocket);
+                }
+                else
+                {
+                    httpContext.Response.StatusCode = 400;
+                    httpContext.Response.Close();
+                }
+            }
+        }
+
+        private async Task HandleWebSocketConnection(WebSocket webSocket)
+        {
+            var buffer = new byte[BufferSize];
+
+            while (webSocket.State == WebSocketState.Open)
+            {
+                _tabs[0].Title = "Extension connected";
+                _tabs[0].IsActive = true;
+
+                WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+                    _tabs[0].Title = "Extension disconnected";
+                    _tabs[0].IsActive = false;
+                }
+                else
+                {
+                    var clientMessage = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    _lastRecievedMessage = clientMessage.Trim();
+                    if (!string.IsNullOrWhiteSpace(_lastRecievedMessage))
+                    {
+                        _tabs[5].IsDisabled = false;
+                        _tabs[6].IsDisabled = false;
+                        if (_tabs[3].IsActive)
+                        {
+                            TypeAndMaybeExecute(_lastRecievedMessage, _tabs[4].IsActive);
+                        }
+                    }
+                    else
+                    {
+                        _tabs[5].IsDisabled = true;
+                        _tabs[6].IsDisabled = true;
+                    }
+                }
+            }
+        }
+
+        private async Task SendMessageToClient(string message)
+        {
+            if (_currentWebSocket != null && _currentWebSocket.State == WebSocketState.Open && !string.IsNullOrEmpty(message))
+            {
+                Debug.WriteLine($"Sent message to client: {message}");
+                var serverMessageBytes = Encoding.UTF8.GetBytes(message);
+                await _currentWebSocket.SendAsync(new ArraySegment<byte>(serverMessageBytes, 0, serverMessageBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+            }
         }
 
         protected override void OnForked(ForkData data)
@@ -149,7 +327,7 @@ namespace tterm.Ui
         {
             var session = sender as TerminalSession;
             ChangeSession(null);
-            _tabs.Add(_addSession);
+            _tabs.Add(_addSessionTab);
         }
 
         private static Profile ExpandVariables(Profile profile)
@@ -321,6 +499,6 @@ namespace tterm.Ui
             base.OnPreviewKeyDown(e);
         }
 
-        
+
     }
 }

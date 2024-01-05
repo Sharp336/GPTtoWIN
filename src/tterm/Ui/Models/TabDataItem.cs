@@ -14,6 +14,8 @@ namespace tterm.Ui.Models
         public event EventHandler Click;
 
         public bool IsImage => (Title == null);
+        public bool IsActive { get; set; }
+        public bool IsDisabled { get; set; }
 
         public void RaiseClickEvent()
         {
