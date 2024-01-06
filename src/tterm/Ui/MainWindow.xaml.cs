@@ -183,7 +183,11 @@ namespace tterm.Ui
             {
                 _currentSession.Write($"{C0.ESC}{C0.ESC}{C0.ESC}");
                 _currentSession.Write(command);
-                if (execute) _currentSession.Write(C0.CR.ToString());
+                if (execute) 
+                {
+                    terminalControl.OnEnterPressed();
+                    _currentSession.Write(C0.CR.ToString()); 
+                }
             }
             terminalControl.Focus();
         }

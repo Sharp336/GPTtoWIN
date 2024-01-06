@@ -73,14 +73,6 @@ namespace tterm.Terminal
             return true;
         }
 
-        public TerminalTagArray GetAsSingleTagInArray()
-        {
-            var tags = ImmutableArray.CreateBuilder<TerminalTag>(initialCapacity: 1);
-            tags.Add(new TerminalTag(this.ToString(), new CharAttributes()));
-            var result = new TerminalTagArray(tags.ToImmutable());
-            return result;
-        }
-
         public override string ToString()
         {
             return string.Concat(_tags.Select(t => t.ToString()));

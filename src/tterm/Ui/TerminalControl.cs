@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -47,10 +48,11 @@ namespace tterm.Ui
         private int _focusTick;
 
         public bool isAutoSendOn = false;
+        private bool _isCollectingNewResult = false;
+        private static Regex promptRegex = new Regex(@"[a-zA-Z]:\\[^>]+>");
         private StringBuilder _lastCollectedResult = new StringBuilder();
         private TerminalTagArray _lastCommandLineTags = new TerminalTagArray();
         public event EventHandler<string> LastResultCollected;
-        private static Regex regex = new Regex(@"[a-zA-Z]:\\[^>]+>$");
 
         public TerminalSession Session
         {
@@ -326,12 +328,12 @@ namespace tterm.Ui
                     for (int y = 0; y < lineCount; y++)
                     {
                         _lines[y].Tags = lineTags[y];
-                        if ( isAutoSendOn && Buffer.CursorY == y && regex.IsMatch(lineTags[y].ToString().Trim()) )
+                        if (_isCollectingNewResult && isAutoSendOn && Buffer.CursorY == y && promptRegex.IsMatch(lineTags[y].ToString().Trim()) )
                         {
-                            Console.WriteLine("CollectLastResult(false)");
+                            Console.WriteLine("Automatically collecting new result");
                             CollectLastResult(false);
+                            _isCollectingNewResult = false;
                         }
-
                     }
 
                     _lastUpdateTick = Environment.TickCount;
@@ -380,7 +382,7 @@ namespace tterm.Ui
                     var lineContent = Buffer.History[i].ToString();
                     _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
 
-                    if (i != Buffer.CursorY && lineContent.Trim() == _lastCommandLineTags.ToString().Trim())
+                    if (i != Buffer.CursorY && lineContent == _lastCommandLineTags.ToString())
                     {
                         break;
                     }
@@ -616,8 +618,7 @@ namespace tterm.Ui
                     text = $"{C0.ESC}[6~";
                     break;
                 case Key.Return:
-                    _lastCollectedResult.Clear();
-                    _lastCommandLineTags = _lines[Buffer.CursorY].Tags.GetAsSingleTagInArray();
+                    OnEnterPressed();
                     text = C0.CR.ToString();
                     break;
                 case Key.Space:
@@ -687,6 +688,20 @@ namespace tterm.Ui
                 return (modCode == 0) ?
                     $"{C0.ESC}O{c}" :
                     $"{C0.ESC}[{a};{modCode + 1}{c}";
+            }
+        }
+        public void OnEnterPressed()
+        {
+            if (!_isCollectingNewResult && promptRegex.IsMatch(_lines[Buffer.CursorY].Tags.ToString()))
+            {
+                var currentLineTags = _lines[Buffer.CursorY].Tags;
+                //Console.WriteLine("OnEnterPressed on line\n" + currentLineTags.ToString());
+                var tags = ImmutableArray.CreateBuilder<TerminalTag>(initialCapacity: 1);
+                tags.Add(new TerminalTag(currentLineTags.ToString(), new CharAttributes()));
+
+                _lastCommandLineTags = new TerminalTagArray(tags.ToImmutable());
+                _lastCollectedResult.Clear();
+                _isCollectingNewResult = true;
             }
         }
 
