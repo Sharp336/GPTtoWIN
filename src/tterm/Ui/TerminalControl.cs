@@ -357,75 +357,48 @@ namespace tterm.Ui
 
         public string CollectLastResult()
         {
-            if (_lastCollectedResult.Length != 0) return _lastCollectedResult.ToString();
+            if (_lastCollectedResult.Length != 0)
+                return _lastCollectedResult.ToString();
 
             bool isLastCommandLineFound = false;
 
-            if(_lastCommandLineTags.Count() > 0)
+            for (int i = Buffer.CursorY; i >= 0; i--)
             {
-                for (int i = Buffer.CursorY; i >= 0; i--)
-                {
-                    var lineContent = Buffer.GetFormattedLine(i).ToString();
-                    _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
+                var lineContent = Buffer.GetFormattedLine(i).ToString();
+                _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
 
-                    if (i != Buffer.CursorY && _lines[i].Tags.Equals(_lastCommandLineTags))
+                // Check if it's the last command line
+                if (i != Buffer.CursorY)
+                {
+                    bool isEqual = _lastCommandLineTags.Count() > 0 ?
+                        _lines[i].Tags.Equals(_lastCommandLineTags) :
+                        lineContent.StartsWith(_lastCommandPrompt);
+
+                    if (isEqual)
                     {
                         isLastCommandLineFound = true;
                         break;
                     }
-
-                }
-                if (!isLastCommandLineFound && Buffer.History.Count > 0)
-                {
-                    for (int i = Buffer.History.Count - 1; i >= 0; i--)
-                    {
-                        var lineContent = Buffer.History[i].ToString();
-                        _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
-
-                        if (lineContent == _lastCommandLineTags.ToString())
-                        {
-                            break;
-                        }
-                    }
                 }
             }
-            else
+
+            // If not found in the visible buffer, search in history
+            if (!isLastCommandLineFound)
             {
-                for (int i = Buffer.CursorY; i >= 0; i--)
+                for (int i = Buffer.History.Count - 1; i >= 0; i--)
                 {
-                    var lineContent = Buffer.GetFormattedLine(i).ToString();
+                    var lineContent = Buffer.History[i].ToString();
                     _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
 
-                    if (i != Buffer.CursorY && _lines[i].Tags.ToString().StartsWith(_lastCommandPrompt))
-                    {
-                        isLastCommandLineFound = true;
+                    if (lineContent.StartsWith(_lastCommandPrompt))
                         break;
-                    }
-
-                }
-                if (!isLastCommandLineFound && Buffer.History.Count > 0)
-                {
-                    for (int i = Buffer.History.Count - 1; i >= 0; i--)
-                    {
-                        var lineContent = Buffer.History[i].ToString();
-                        _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
-
-                        if (lineContent.StartsWith(_lastCommandPrompt))
-                        {
-                            break;
-                        }
-                    }
                 }
             }
-
-            var result = _lastCollectedResult.ToString();
 
             if (isAutoSendOn)
-            {
-                LastResultCollected(this, result);
-            }
+                LastResultCollected(this, _lastCollectedResult.ToString().Trim());
 
-            return result;
+            return _lastCollectedResult.ToString().Trim();
         }
 
 
