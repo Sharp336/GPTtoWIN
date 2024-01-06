@@ -112,7 +112,6 @@ namespace tterm.Ui
 
         private void Test_Click(object sender, EventArgs e)
         {
-            TypeAndMaybeExecute("dir", true);
             terminalControl.Focus();
         }
 
@@ -166,29 +165,14 @@ namespace tterm.Ui
         private void TypeRecievedManuallyTab_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
-            if (tab != null && !tab.IsDisabled) TypeAndMaybeExecute(_lastRecievedMessage, false);
+            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, false);
             terminalControl.Focus();
         }
 
         private void ExecuteManuallyTab_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
-            if (tab != null && !tab.IsDisabled) TypeAndMaybeExecute(_lastRecievedMessage, true);
-            terminalControl.Focus();
-        }
-
-        private void TypeAndMaybeExecute(string command, bool execute = false)
-        {
-            if (!string.IsNullOrWhiteSpace(command))
-            {
-                _currentSession.Write($"{C0.ESC}{C0.ESC}{C0.ESC}");
-                _currentSession.Write(command);
-                if (execute) 
-                {
-                    terminalControl.OnEnterPressed();
-                    _currentSession.Write(C0.CR.ToString()); 
-                }
-            }
+            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, true);
             terminalControl.Focus();
         }
 
@@ -272,7 +256,7 @@ namespace tterm.Ui
                         _tabs[6].IsDisabled = false;
                         if (_tabs[3].IsActive)
                         {
-                            TypeAndMaybeExecute(_lastRecievedMessage, _tabs[4].IsActive);
+                            terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, _tabs[4].IsActive);
                         }
                     }
                     else
@@ -501,6 +485,7 @@ namespace tterm.Ui
         protected override void OnResizeEnded()
         {
             resizeHint.IsShowing = false;
+            terminalControl.ClearLastCommandLineTags();
         }
 
         private void SetTermialSize(TerminalSize size)

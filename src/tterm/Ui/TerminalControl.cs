@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -48,11 +49,13 @@ namespace tterm.Ui
         private int _focusTick;
 
         public bool isAutoSendOn = false;
+        public event EventHandler<string> LastResultCollected;
+
         private bool _isCollectingNewResult = false;
         private static Regex promptRegex = new Regex(@"[a-zA-Z]:\\[^>]+>");
+        private string _lastCommandPrompt = "";
         private StringBuilder _lastCollectedResult = new StringBuilder();
         private TerminalTagArray _lastCommandLineTags = new TerminalTagArray();
-        public event EventHandler<string> LastResultCollected;
 
         public TerminalSession Session
         {
@@ -97,6 +100,7 @@ namespace tterm.Ui
                     {
                         textBlock.FontSize = value;
                     }
+                    ClearLastCommandLineTags();
                 }
             }
         }
@@ -331,7 +335,7 @@ namespace tterm.Ui
                         if (_isCollectingNewResult && isAutoSendOn && Buffer.CursorY == y && promptRegex.IsMatch(lineTags[y].ToString().Trim()) )
                         {
                             Console.WriteLine("Automatically collecting new result");
-                            CollectLastResult(false);
+                            CollectLastResult();
                             _isCollectingNewResult = false;
                         }
                     }
@@ -349,42 +353,67 @@ namespace tterm.Ui
             }
         }
 
-        public string CollectLastResult(bool isScrollRequired = true)
+        public void ClearLastCommandLineTags() => _lastCommandLineTags = new TerminalTagArray();
+
+        public string CollectLastResult()
         {
             if (_lastCollectedResult.Length != 0) return _lastCollectedResult.ToString();
 
-            Console.WriteLine("Collecting new result");
-
-            if (isScrollRequired)
-            {
-                _session.Write(" ");
-                _session.Write(C0.DEL.ToString());
-            }
-
             bool isLastCommandLineFound = false;
 
-            for (int i = Buffer.CursorY; i >= 0; i--)
+            if(_lastCommandLineTags.Count() > 0)
             {
-                var lineContent = Buffer.GetFormattedLine(i).ToString();
-                _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
-
-                if (i != Buffer.CursorY && _lines[i].Tags.Equals(_lastCommandLineTags))
+                for (int i = Buffer.CursorY; i >= 0; i--)
                 {
-                    isLastCommandLineFound = true;
-                    break;
-                }
-
-            }
-            if (!isLastCommandLineFound)
-            {
-                for (int i = Buffer.History.Count - 1; i >= 0; i--)
-                {
-                    var lineContent = Buffer.History[i].ToString();
+                    var lineContent = Buffer.GetFormattedLine(i).ToString();
                     _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
 
-                    if (i != Buffer.CursorY && lineContent == _lastCommandLineTags.ToString())
+                    if (i != Buffer.CursorY && _lines[i].Tags.Equals(_lastCommandLineTags))
                     {
+                        isLastCommandLineFound = true;
                         break;
+                    }
+
+                }
+                if (!isLastCommandLineFound && Buffer.History.Count > 0)
+                {
+                    for (int i = Buffer.History.Count - 1; i >= 0; i--)
+                    {
+                        var lineContent = Buffer.History[i].ToString();
+                        _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
+
+                        if (lineContent == _lastCommandLineTags.ToString())
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (int i = Buffer.CursorY; i >= 0; i--)
+                {
+                    var lineContent = Buffer.GetFormattedLine(i).ToString();
+                    _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
+
+                    if (i != Buffer.CursorY && _lines[i].Tags.ToString().StartsWith(_lastCommandPrompt))
+                    {
+                        isLastCommandLineFound = true;
+                        break;
+                    }
+
+                }
+                if (!isLastCommandLineFound && Buffer.History.Count > 0)
+                {
+                    for (int i = Buffer.History.Count - 1; i >= 0; i--)
+                    {
+                        var lineContent = Buffer.History[i].ToString();
+                        _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
+
+                        if (lineContent.StartsWith(_lastCommandPrompt))
+                        {
+                            break;
+                        }
                     }
                 }
             }
@@ -618,7 +647,7 @@ namespace tterm.Ui
                     text = $"{C0.ESC}[6~";
                     break;
                 case Key.Return:
-                    OnEnterPressed();
+                    OnEnterKeyPressed();
                     text = C0.CR.ToString();
                     break;
                 case Key.Space:
@@ -690,16 +719,42 @@ namespace tterm.Ui
                     $"{C0.ESC}[{a};{modCode + 1}{c}";
             }
         }
-        public void OnEnterPressed()
-        {
-            if (!_isCollectingNewResult && promptRegex.IsMatch(_lines[Buffer.CursorY].Tags.ToString()))
-            {
-                var currentLineTags = _lines[Buffer.CursorY].Tags;
-                //Console.WriteLine("OnEnterPressed on line\n" + currentLineTags.ToString());
-                var tags = ImmutableArray.CreateBuilder<TerminalTag>(initialCapacity: 1);
-                tags.Add(new TerminalTag(currentLineTags.ToString(), new CharAttributes()));
 
-                _lastCommandLineTags = new TerminalTagArray(tags.ToImmutable());
+        public void TypeAndMaybeExecute(string command, bool execute = false)
+        {
+            if (string.IsNullOrWhiteSpace(command)) command = "echo the command passed to TypeAndMaybeExecute is empty";
+            _session.Write($"{C0.ESC}{C0.ESC}{C0.ESC}");
+            _session.Write(command);
+            if (execute)
+            {
+                OnEnterKeyPressed(CollectLastCommandLineTags: false);
+                _session.Write(C0.CR.ToString());
+            }
+        }
+
+        private void OnEnterKeyPressed(bool CollectLastCommandLineTags = true)
+        {
+            if (!_isCollectingNewResult || !isAutoSendOn)
+            {
+                int LinePromptMatchY = Buffer.CursorY;
+                var LinePromptMatch = promptRegex.Match(_lines[LinePromptMatchY].Tags.ToString());
+                _lastCommandPrompt = LinePromptMatch.Value;
+
+                while (LinePromptMatchY > 0 && !LinePromptMatch.Success)
+                {
+                    LinePromptMatchY--;
+                    LinePromptMatch = promptRegex.Match(_lines[LinePromptMatchY].Tags.ToString());
+                    if (LinePromptMatch.Success) _lastCommandPrompt = LinePromptMatch.Value;
+                }
+
+                if (CollectLastCommandLineTags)
+                {
+                    var promptLineTags = _lines[LinePromptMatchY].Tags;
+                    var tags = ImmutableArray.CreateBuilder<TerminalTag>(initialCapacity: 1);
+                    tags.Add(new TerminalTag(promptLineTags.ToString(), new CharAttributes()));
+                    _lastCommandLineTags = new TerminalTagArray(tags.ToImmutable());
+                }
+
                 _lastCollectedResult.Clear();
                 _isCollectingNewResult = true;
             }
