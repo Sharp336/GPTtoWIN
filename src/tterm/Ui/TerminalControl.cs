@@ -695,7 +695,7 @@ namespace tterm.Ui
 
         public void TypeAndMaybeExecute(string command, bool execute = false)
         {
-            if (string.IsNullOrWhiteSpace(command)) command = "echo the command passed to TypeAndMaybeExecute is empty";
+            if (string.IsNullOrWhiteSpace(command)) command = "echo 'the command passed to TypeAndMaybeExecute is empty'";
             _session.Write($"{C0.ESC}{C0.ESC}{C0.ESC}");
             _session.Write(command);
             if (execute)

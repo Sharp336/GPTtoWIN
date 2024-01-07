@@ -200,71 +200,96 @@ namespace tterm.Ui
 
         private async void StartWebSocketServer()
         {
-            _httpListener = new HttpListener();
-            _httpListener.Prefixes.Add("http://localhost:5000/");
-            _httpListener.Start();
+            try
+            {
+                _httpListener = new HttpListener();
+                _httpListener.Prefixes.Add("http://localhost:5000/");
+                _httpListener.Start();
 
-            _tabs[0].Title = "WebSocket server started";
-
-            await AcceptClients(_httpListener);
+                _tabs[0].Title = "WebSocket server started";
+                await AcceptClients(_httpListener);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception
+                Debug.WriteLine("Exception in StartWebSocketServer: " + ex.ToString());
+            }
         }
 
         private async Task AcceptClients(HttpListener httpListener)
         {
             while (true)
             {
-                var httpContext = await httpListener.GetContextAsync();
-
-                if (httpContext.Request.IsWebSocketRequest)
+                try
                 {
-                    var webSocketContext = await httpContext.AcceptWebSocketAsync(null);
-                    _currentWebSocket = webSocketContext.WebSocket;
-                    var handleWebSocketTask = HandleWebSocketConnection(_currentWebSocket);
+                    var httpContext = await httpListener.GetContextAsync();
+                    if (httpContext.Request.IsWebSocketRequest)
+                    {
+                        var webSocketContext = await httpContext.AcceptWebSocketAsync(null);
+                        _currentWebSocket = webSocketContext.WebSocket;
+                        var handleWebSocketTask = HandleWebSocketConnection(_currentWebSocket);
+                    }
+                    else
+                    {
+                        httpContext.Response.StatusCode = 400;
+                        httpContext.Response.Close();
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    httpContext.Response.StatusCode = 400;
-                    httpContext.Response.Close();
+                    // Log the exception
+                    Debug.WriteLine("Exception in AcceptClients: " + ex.ToString());
                 }
             }
         }
 
+        private const string KeepAliveMessage = "keep-alive"; // Текст keep-alive сообщения, должен совпадать с клиентским
+
         private async Task HandleWebSocketConnection(WebSocket webSocket)
         {
             var buffer = new byte[BufferSize];
-
-            while (webSocket.State == WebSocketState.Open)
+            try
             {
-                _tabs[0].Title = "Extension connected";
-                _tabs[0].IsActive = true;
-
-                WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-
-                if (result.MessageType == WebSocketMessageType.Close)
+                while (webSocket.State == WebSocketState.Open)
                 {
-                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
-                    _tabs[0].Title = "Extension disconnected";
-                    _tabs[0].IsActive = false;
-                }
-                else
-                {
-                    var clientMessage = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    _lastRecievedMessage = clientMessage.Trim();
-                    if (!string.IsNullOrWhiteSpace(_lastRecievedMessage))
+                    _tabs[0].Title = "Extension connected";
+                    _tabs[0].IsActive = true;
+
+                    WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+
+                    if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        _tabs[5].IsDisabled = false;
-                        _tabs[6].IsDisabled = false;
-                        if (_tabs[3].IsActive)
+                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+                        _tabs[0].Title = "Extension disconnected";
+                        _tabs[0].IsActive = false;
+                    }
+                    else if (result.MessageType == WebSocketMessageType.Text)
+                    {
+                        var clientMessage = Encoding.UTF8.GetString(buffer, 0, result.Count).Trim();
+
+                        // Проверка на keep-alive или пустое сообщение
+                        if (clientMessage != KeepAliveMessage && !string.IsNullOrWhiteSpace(clientMessage))
                         {
-                            terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, _tabs[4].IsActive);
+                            _lastRecievedMessage = clientMessage;
+                            _tabs[5].IsDisabled = false;
+                            _tabs[6].IsDisabled = false;
+                            if (_tabs[3].IsActive)
+                            {
+                                terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, _tabs[4].IsActive);
+                            }
+                        }
+                        else
+                        {
+                            _tabs[5].IsDisabled = true;
+                            _tabs[6].IsDisabled = true;
                         }
                     }
-                    else
-                    {
-                        _tabs[5].IsDisabled = true;
-                        _tabs[6].IsDisabled = true;
-                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                // Log the exception
+                Debug.WriteLine("Exception in HandleWebSocketConnection: " + ex.ToString());
             }
         }
 
