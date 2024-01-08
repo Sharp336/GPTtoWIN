@@ -83,3 +83,5 @@ document.getElementById('autoSendCheckbox').addEventListener('change', function(
 chrome.storage.local.get('autoSend', function(data) {
     document.getElementById('autoSendCheckbox').checked = data.autoSend || false;
 });
+
+chrome.runtime.sendMessage({ action: "popupOpened" });

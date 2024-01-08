@@ -1,19 +1,28 @@
-    let ws = null;
-    let keepAliveInterval = null;
-    const KEEP_ALIVE_MSG = 'keep-alive';
-    const KEEP_ALIVE_INTERVAL = 30000; // Отправлять keep-alive сообщение каждые 30 секунд
+let ws = null;
+let keepAliveInterval = null;
+let reconnectInterval = null;
+let reconnectAttempts = 0;
+const KEEP_ALIVE_MSG = 'keep-alive';
+const KEEP_ALIVE_INTERVAL = 30000; // Отправлять keep-alive сообщение каждые 30 секунд
+const RECONNECT_ATTEMPT_INTERVAL = 5000; // Попытка переподключения каждые 5 секунд
+const MAX_RECONNECT_ATTEMPTS = 12; // Максимум 12 попыток в течение минуты (60 / 5)
 
     const targetTabs = new Set(); // Используем Set для хранения уникальных идентификаторов вкладок
 
-    function setTabNonDiscardable(tabId) {
-        chrome.tabs.update(tabId, { autoDiscardable: false });
+    function updateTabDiscardable(tabId, nonDiscardable) {
+        if ((ws && ws.readyState === WebSocket.OPEN) || !nonDiscardable) {
+            chrome.tabs.update(tabId, { autoDiscardable: !nonDiscardable });
+        }
+    }
+
+    function setAllTabsDiscardable(nonDiscardable) {
+        targetTabs.forEach(tabId => updateTabDiscardable(tabId, nonDiscardable));
     }
 
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         if (tab.url && tab.url.includes("https://chat.openai.com/")) {
-            setTabNonDiscardable(tabId);
             targetTabs.add(tabId); // Добавляем вкладку в список
-            attemptToConnectWebSocket(); // Пытаемся установить подключение при обнаружении целевой вкладки
+            updateTabDiscardable(tabId, true); // Включаем или выключаем autoDiscardable
         }
     });
 
@@ -27,15 +36,9 @@
     // Слушатель для создания новых вкладок
     chrome.tabs.onCreated.addListener((tab) => {
         if (tab.url && tab.url.includes("https://chat.openai.com/")) {
-            setTabNonDiscardable(tab.id);
+            updateTabDiscardable(tab.id, true)
         }
     });
-
-    function attemptToConnectWebSocket() {
-        if (!ws || ws.readyState === WebSocket.CLOSED) {
-            connectWebSocket();
-        }
-    }
 
     function SetConnectionStatus(status) {
         console.log(`Setting connection status to: ${status}`);  // Добавлено логирование
@@ -44,7 +47,7 @@
 
     function connectWebSocket() {
 
-        if (targetTabs.size > 0) {
+        if (targetTabs.size > 0 && (!ws || ws.readyState === WebSocket.CLOSED)) {
             // Подключаемся только если есть хотя бы одна целевая вкладка
             try {
                 // Подключаемся только если есть хотя бы одна целевая вкладка
@@ -52,6 +55,7 @@
 
                 ws.onopen = function () {
                     console.log('WebSocket connection opened.');
+                    setAllTabsDiscardable(true);
                     SetConnectionStatus('Connected');
 
                     // Установить интервал keep-alive сообщений
@@ -82,6 +86,7 @@
                 };
 
                 ws.onclose = function (event) {
+                    setAllTabsDiscardable(false);
                     clearInterval(keepAliveInterval);  // Очистка интервала при закрытии соединения
 
                     if (event.wasClean) {
@@ -93,22 +98,18 @@
                     }
 
                     ws = null;
-
-                    // Try reconnecting after 5 seconds
-                    console.log('Attempting to reconnect in 5 seconds...');
-                    SetConnectionStatus('Trying to reconnect');
-                    setTimeout(connectWebSocket, 10000);
                 };
 
                 ws.onerror = function () {
+                    setAllTabsDiscardable(false);
                     console.log("WebSocket Error");
                     SetConnectionStatus('Error');
                 };
             }
             catch (error) {
+                setAllTabsDiscardable(false);
                 console.log('Failed to establish a WebSocket connection: ', error);
                 SetConnectionStatus('Failed to connect');
-                setTimeout(connectWebSocket, 10000);
             }
         }
         else
@@ -116,6 +117,61 @@
             SetConnectionStatus('Searching for tab');
         }
     }
+
+function attemptToConnectWebSocket() {
+    if (targetTabs.size > 0 && (!ws || ws.readyState === WebSocket.CLOSED)) {
+        reconnectAttempts = 0;
+        connectWebSocketWithReconnect();
+    }
+}
+
+function connectWebSocketWithReconnect() {
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts++;
+        console.log(`Attempting to connect WebSocket (Attempt: ${reconnectAttempts})`);
+        connectWebSocket();
+        // Запланировать следующую попытку подключения
+        if (!reconnectInterval) {
+            reconnectInterval = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                    console.log('Reached maximum reconnect attempts, stopping reconnection attempts');
+                } else {
+
+                    // Try reconnecting after 5 seconds
+                    console.log('Attempting to reconnect in 5 seconds...');
+                    SetConnectionStatus('Trying to reconnect');
+                    connectWebSocketWithReconnect();
+                }
+            }, RECONNECT_ATTEMPT_INTERVAL);
+        }
+    } else {
+        // Если достигнут максимум попыток и интервал все еще активен, его нужно остановить
+        if (reconnectInterval) {
+            clearInterval(reconnectInterval);
+            reconnectInterval = null;
+        }
+        console.log('Reached maximum reconnect attempts, stopping reconnection attempts');
+    }
+}
+
+function popupOpened() {
+    // Обнуляем попытки переподключения при открытии pop-up
+    reconnectAttempts = 0;
+    attemptToConnectWebSocket()
+}
+
+// Слушатель сообщений для обработки действий pop-up
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    // Обработчики сообщений остаются без изменений
+    if (message.action === "popupOpened") {
+        popupOpened(); // Вызывается, когда открывается pop-up
+    }
+});
 
     function insertAndPossiblySend(message, autoTell) {
         const textarea = document.getElementById('prompt-textarea');
@@ -177,13 +233,12 @@
     // Проверяем уже открытые вкладки на наличие целевых
     chrome.tabs.query({ url: "https://chat.openai.com/*" }, function (tabs) {
         tabs.forEach(tab => {
-            // Добавляем найденные целевые вкладки в список и делаем их не выгружаемыми
+            // Добавляем найденные целевые вкладки в список
             targetTabs.add(tab.id);
-            setTabNonDiscardable(tab.id);
         });
 
         // Если нашли хотя бы одну целевую вкладку, пробуем подключиться
         if (targetTabs.size > 0) {
-            attemptToConnectWebSocket();
+            attemptToConnectWebSocket()
         }
     });

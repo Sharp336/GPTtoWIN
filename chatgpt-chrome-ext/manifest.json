@@ -1,10 +1,9 @@
-// manifest.json begins
 
 {
   "manifest_version": 3,
-  "name": "GPTtoCMD",
+  "name": "GPToCMD",
   "version": "1.0",
-  "description": "Расширение для chrome, работающее в паре с десктопным приложением GPTtoCMD",
+  "description": "Расширение для chrome, работающее в паре с десктопным приложением GPToCMD",
   "permissions": [
     "activeTab",
     "storage",
