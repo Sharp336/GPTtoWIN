@@ -13,6 +13,7 @@ using System.Windows.Input;
 using MahApps.Metro.IconPacks;
 using tterm.Ansi;
 using tterm.Extensions;
+using tterm.Remote;
 using tterm.Terminal;
 using tterm.Ui.Models;
 
@@ -39,12 +40,10 @@ namespace tterm.Ui
         private TerminalSize _terminalSize;
         private Profile _defaultProfile;
 
-        private TabDataItem _addSessionTab = new TabDataItem() { Image = PackIconMaterialKind.Plus };
+        private RemoteManager _remoteManager;
+        private string _lastRecievedMessage = "";
 
-        private HttpListener _httpListener;
-        private WebSocket _currentWebSocket;
-        private const int BufferSize = 4096;
-        string _lastRecievedMessage = "";
+        private TabDataItem _addSessionTab = new TabDataItem() { Image = PackIconMaterialKind.Plus };
 
         public bool Ready
         {
@@ -79,6 +78,9 @@ namespace tterm.Ui
         {
             base.OnInitialized(e);
             _tickInitialised = Environment.TickCount;
+            _remoteManager = new RemoteManager();
+            _remoteManager.StateHasChanged += OnConnectionStateChanged;
+            _remoteManager.MessageReceived += OnMessageReceived;
         }
 
         private void InitializeTabs()
@@ -132,13 +134,13 @@ namespace tterm.Ui
             terminalControl.Focus();
         }
 
-        private void SendLastOutputManually_Click(object sender, EventArgs e)
+        private async void SendLastOutputManually_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
             if (tab != null)
             {
                 var message = terminalControl.CollectLastResult();
-                SendMessageToClient(message);
+                await _remoteManager.TrySendingMessage(message);
             }
             terminalControl.Focus();
         }
@@ -194,113 +196,31 @@ namespace tterm.Ui
             }
             _defaultProfile = ExpandVariables(profile);
             CreateSession(_defaultProfile);
-
-            StartWebSocketServer();
         }
 
-        private async void StartWebSocketServer()
+        private void OnConnectionStateChanged(string status, bool isConnected)
         {
-            try
-            {
-                _httpListener = new HttpListener();
-                _httpListener.Prefixes.Add("http://localhost:5000/");
-                _httpListener.Start();
-
-                _tabs[0].Title = "WebSocket server started";
-                await AcceptClients(_httpListener);
-            }
-            catch (Exception ex)
-            {
-                // Log the exception
-                Debug.WriteLine("Exception in StartWebSocketServer: " + ex.ToString());
-            }
+            _tabs[0].Title = status;
+            _tabs[0].IsActive = isConnected;
+            Console.WriteLine(status);
         }
 
-        private async Task AcceptClients(HttpListener httpListener)
+        private void OnMessageReceived(string message)
         {
-            while (true)
+            if (!string.IsNullOrWhiteSpace(message))
             {
-                try
+                _lastRecievedMessage = message;
+                _tabs[5].IsDisabled = false;
+                _tabs[6].IsDisabled = false;
+                if (_tabs[3].IsActive)
                 {
-                    var httpContext = await httpListener.GetContextAsync();
-                    if (httpContext.Request.IsWebSocketRequest)
-                    {
-                        var webSocketContext = await httpContext.AcceptWebSocketAsync(null);
-                        _currentWebSocket = webSocketContext.WebSocket;
-                        var handleWebSocketTask = HandleWebSocketConnection(_currentWebSocket);
-                    }
-                    else
-                    {
-                        httpContext.Response.StatusCode = 400;
-                        httpContext.Response.Close();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log the exception
-                    Debug.WriteLine("Exception in AcceptClients: " + ex.ToString());
+                    terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, _tabs[4].IsActive);
                 }
             }
-        }
-
-        private const string KeepAliveMessage = "keep-alive"; // Текст keep-alive сообщения, должен совпадать с клиентским
-
-        private async Task HandleWebSocketConnection(WebSocket webSocket)
-        {
-            var buffer = new byte[BufferSize];
-            try
+            else
             {
-                while (webSocket.State == WebSocketState.Open)
-                {
-                    _tabs[0].Title = "Extension connected";
-                    _tabs[0].IsActive = true;
-
-                    WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-
-                    if (result.MessageType == WebSocketMessageType.Close)
-                    {
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
-                        _tabs[0].Title = "Extension disconnected";
-                        _tabs[0].IsActive = false;
-                    }
-                    else if (result.MessageType == WebSocketMessageType.Text)
-                    {
-                        var clientMessage = Encoding.UTF8.GetString(buffer, 0, result.Count).Trim();
-
-                        // Проверка на keep-alive или пустое сообщение
-                        if (clientMessage != KeepAliveMessage && !string.IsNullOrWhiteSpace(clientMessage))
-                        {
-                            _lastRecievedMessage = clientMessage;
-                            _tabs[5].IsDisabled = false;
-                            _tabs[6].IsDisabled = false;
-                            if (_tabs[3].IsActive)
-                            {
-                                terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, _tabs[4].IsActive);
-                            }
-                        }
-                        else
-                        {
-                            _tabs[5].IsDisabled = true;
-                            _tabs[6].IsDisabled = true;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log the exception
-                Debug.WriteLine("Exception in HandleWebSocketConnection: " + ex.ToString());
-            }
-        }
-
-        private async Task SendMessageToClient(string message)
-        {
-            Console.WriteLine($"\nTrying to send:\n{message}");
-            if (_currentWebSocket != null && _currentWebSocket.State == WebSocketState.Open && !string.IsNullOrEmpty(message))
-            {
-                Debug.WriteLine($"Sent message to client");
-                var serverMessageBytes = Encoding.UTF8.GetBytes(message);
-                await _currentWebSocket.SendAsync(new ArraySegment<byte>(serverMessageBytes, 0, serverMessageBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+                _tabs[5].IsDisabled = true;
+                _tabs[6].IsDisabled = true;
             }
         }
 
@@ -346,9 +266,9 @@ namespace tterm.Ui
             }
         }
 
-        private void SendAutoCollectedResult(object sender, string result)
+        private async void SendAutoCollectedResult(object sender, string result)
         {
-            SendMessageToClient(result);
+            await _remoteManager.TrySendingMessage(result);
         }
 
         private void CloseSession(TerminalSession session)

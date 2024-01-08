@@ -7,13 +7,44 @@
              mc:Ignorable="d"
              d:DesignHeight="16" d:DesignWidth="300">
     <UserControl.Resources>
+        <Style x:Key="ScrollBarThumb" TargetType="{x:Type Thumb}">
+            <Setter Property="Background" Value="Black" />
+        </Style>
+
+        <!-- Определение стиля для трека скроллбара -->
+        <Style x:Key="ScrollBarTrack" TargetType="{x:Type Track}">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style x:Key="{x:Type ScrollBar}" TargetType="{x:Type ScrollBar}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Track x:Name="PART_Track"
+                           IsDirectionReversed="True"
+                           Style="{StaticResource ScrollBarTrack}">
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource ScrollBarThumb}" />
+                            </Track.Thumb>
+                        </Track>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Stylus.IsFlicksEnabled" Value="True" />
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="5" />
+                    <Setter Property="MinHeight" Value="5" />
+                </Trigger>
+            </Style.Triggers>
+            
+        </Style>
         <Style TargetType="Button">
             <Setter Property="Content" Value="{Binding Title}" />
             <Setter Property="Foreground" Value="{DynamicResource TabButtonFgActive}" />
             <Setter Property="Background" Value="{DynamicResource TabButtonBgInactive}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="5,0" />
-            <Setter Property="Margin" Value="5,0,0,0" />
+            <Setter Property="Margin" Value="5,2,0,2" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
@@ -59,16 +90,21 @@
             </Style.Triggers>
         </Style>
     </UserControl.Resources>
-    <ItemsControl ItemsSource="{Binding}">
-        <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-                <StackPanel Orientation="Horizontal"/>
-            </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-            <DataTemplate>
-                <Button Click="OnTabClick" />
-            </DataTemplate>
-        </ItemsControl.ItemTemplate>
-    </ItemsControl>
+    <ScrollViewer x:Name="scrollViewer" HorizontalScrollBarVisibility="Auto" 
+                  VerticalScrollBarVisibility="Hidden" 
+                  PanningMode="HorizontalOnly" CanContentScroll="True">
+
+        <ItemsControl ItemsSource="{Binding}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Click="OnTabClick" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
 </UserControl>

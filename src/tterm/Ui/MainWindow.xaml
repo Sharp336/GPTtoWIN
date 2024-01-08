@@ -15,12 +15,11 @@
                       WindowTransitionsEnabled="False">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="20" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="auto" />
         </Grid.ColumnDefinitions>
         <local:TabBar x:Name="tabBar" Grid.Row="0" Grid.Column="0" />
         <Grid Grid.Row="1" Grid.ColumnSpan="2">
