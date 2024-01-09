@@ -334,7 +334,7 @@ namespace tterm.Ui
                         _lines[y].Tags = lineTags[y];
                         if (_isCollectingNewResult && isAutoSendOn && Buffer.CursorY == y && promptRegex.IsMatch(lineTags[y].ToString().Trim()) )
                         {
-                            Console.WriteLine("Automatically collecting new result");
+                            Debug.WriteLine("Automatically collecting new result");
                             CollectLastResult();
                             _isCollectingNewResult = false;
                         }

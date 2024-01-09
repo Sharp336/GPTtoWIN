@@ -75,11 +75,7 @@ const MAX_RECONNECT_ATTEMPTS = 12; // Максимум 12 попыток в те
                     chrome.storage.local.get(['autoInsert', 'autoTell'], function (result) {
                         if (result.autoInsert) {
                             targetTabs.forEach((tabId) => { // Отправляем сообщение на каждую вкладку в списке
-                                chrome.scripting.executeScript({
-                                    target: { tabId: tabId },
-                                    function: insertAndPossiblySend,
-                                    args: [event.data, result.autoTell]
-                                });
+                                chrome.tabs.sendMessage(tabId, { action: "insertMessage", data: event.data, autoTell: result.autoTell });
                             });
                         }
                     });
@@ -94,7 +90,7 @@ const MAX_RECONNECT_ATTEMPTS = 12; // Максимум 12 попыток в те
                         SetConnectionStatus('Disconnected');
                     } else {
                         console.log('WebSocket connection closed with error code:', event.code, 'Reason:', event.reason);
-                        SetConnectionStatus('Error');
+                        SetConnectionStatus('Disconnected');
                     }
 
                     ws = null;
@@ -103,7 +99,7 @@ const MAX_RECONNECT_ATTEMPTS = 12; // Максимум 12 попыток в те
                 ws.onerror = function () {
                     setAllTabsDiscardable(false);
                     console.log("WebSocket Error");
-                    SetConnectionStatus('Error');
+                    SetConnectionStatus('Disconnected');
                 };
             }
             catch (error) {
@@ -126,7 +122,7 @@ function attemptToConnectWebSocket() {
 }
 
 function connectWebSocketWithReconnect() {
-    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+    if (targetTabs.size > 0 && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts++;
         console.log(`Attempting to connect WebSocket (Attempt: ${reconnectAttempts})`);
         connectWebSocket();
@@ -173,26 +169,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
-    function insertAndPossiblySend(message, autoTell) {
-        const textarea = document.getElementById('prompt-textarea');
-        const sendButton = document.querySelector('[data-testid="send-button"]');
-        if (textarea) {
-            // Сначала удаляем атрибут disabled у кнопки отправки, если он есть
-            sendButton.removeAttribute('disabled');
 
-            // Вставляем сообщение в textarea
-            textarea.value = message;
-
-            // Имитируем событие input для обновления состояния React или других фреймворков
-            const event = new Event('input', { bubbles: true });
-            textarea.dispatchEvent(event);
-
-            // Проверяем, активирован ли autoTell и нажимаем кнопку, если она активна
-            if (autoTell && sendButton && !sendButton.disabled) {
-                sendButton.click();
-            }
-        }
-    }
 
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         switch (message.action) {

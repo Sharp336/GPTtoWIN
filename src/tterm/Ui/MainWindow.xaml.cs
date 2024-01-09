@@ -152,6 +152,7 @@ namespace tterm.Ui
             if (tab != null)
             {
                 tab.IsActive = !tab.IsActive;
+                if (!tab.IsActive) _tabs[4].IsActive = false;
                 _tabs[4].IsDisabled = !tab.IsActive;
             }
             terminalControl.Focus();
@@ -202,7 +203,6 @@ namespace tterm.Ui
         {
             _tabs[0].Title = status;
             _tabs[0].IsActive = isConnected;
-            Console.WriteLine(status);
         }
 
         private void OnMessageReceived(string message)
