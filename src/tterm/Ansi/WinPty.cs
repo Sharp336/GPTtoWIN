@@ -3,14 +3,19 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using tterm.Terminal;
+using tterm.Extensions;
+using tterm.Remote;
+using EasyHook;
 using static tterm.Native.Win32;
 using static winpty.WinPty;
+//using ConsoleReadObserver;
 
 namespace tterm.Ansi
 {
+
+
     internal class WinPty : IDisposable
     {
         private bool _disposed;
@@ -20,6 +25,12 @@ namespace tterm.Ansi
         public Stream StandardInput { get; private set; }
         public Stream StandardOutput { get; private set; }
         public Stream StandardError { get; private set; }
+
+        public static string currdir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\";
+
+        public static string name = null;
+        public System.Runtime.Remoting.Channels.Ipc.IpcServerChannel IpcChannel = null;
+
 
         static WinPty()
         {
@@ -35,7 +46,6 @@ namespace tterm.Ansi
         public WinPty(Profile profile, TerminalSize size, bool separateStdErr = false)
         {
             _size = size;
-
             IntPtr err = IntPtr.Zero;
             IntPtr cfg = IntPtr.Zero;
             IntPtr spawnCfg = IntPtr.Zero;
@@ -84,6 +94,30 @@ namespace tterm.Ansi
                 winpty_config_free(cfg);
                 winpty_spawn_config_free(spawnCfg);
                 winpty_error_free(err);
+            }
+        }
+
+        public void StartObserving()
+        {
+            int? cmdPid = ProcessExtensions.FindCmdProcessPidWithWinptyAgentParent();
+            if (cmdPid.HasValue)
+            {
+                IpcChannel = RemoteHooking.IpcCreateServer<RemoteControl>(ref name, System.Runtime.Remoting.WellKnownObjectMode.Singleton);
+
+                Console.WriteLine(cmdPid);
+                try
+                {
+                    RemoteHooking.Inject((int)cmdPid, InjectionOptions.DoNotRequireStrongName, currdir + "ConsoleReadObserver.dll", currdir + "ConsoleReadObserver.dll", new Object[] { IpcChannel.ChannelName });
+                }
+                catch (FileNotFoundException e)
+                {
+                    Console.WriteLine(e.ToString());
+                }
+
+            }
+            else
+            {
+                Console.WriteLine("No matching process found.");
             }
         }
 

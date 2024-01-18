@@ -1,11 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26403.3
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34221.43
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{04F53CB4-2C4A-4B97-B25D-121DD3D1D7D5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tterm", "src\tterm\tterm.csproj", "{8BF6C7C8-2B7A-4833-9AB7-6C3E39ACD776}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleReadObserver", "ConsoleReadObserver\ConsoleReadObserver.csproj", "{48C9068C-F504-46A6-8A41-A450824622E0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,6 +19,10 @@ Global
 		{8BF6C7C8-2B7A-4833-9AB7-6C3E39ACD776}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8BF6C7C8-2B7A-4833-9AB7-6C3E39ACD776}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8BF6C7C8-2B7A-4833-9AB7-6C3E39ACD776}.Release|Any CPU.Build.0 = Release|Any CPU
+		{48C9068C-F504-46A6-8A41-A450824622E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{48C9068C-F504-46A6-8A41-A450824622E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{48C9068C-F504-46A6-8A41-A450824622E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{48C9068C-F504-46A6-8A41-A450824622E0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

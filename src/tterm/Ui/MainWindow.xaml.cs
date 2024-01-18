@@ -114,6 +114,11 @@ namespace tterm.Ui
 
         private void Test_Click(object sender, EventArgs e)
         {
+
+            Dispatcher.InvokeAsync(() =>
+            {
+                _currentSession.Sex();
+            });
             terminalControl.Focus();
         }
 
