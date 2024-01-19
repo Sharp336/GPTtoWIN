@@ -1,6 +1,8 @@
 ﻿using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 using EasyHook;
 using tterm.Remote;
 
@@ -20,6 +22,7 @@ namespace ConsoleReadObserver
                 Interface = RemoteHooking.IpcConnectClient<RemoteControl>(channelName);
                 ChannelName = channelName;
                 Interface.IsInstalled(RemoteHooking.GetCurrentProcessId());
+                LogToFile("IsInstalled called");
             }
             catch (Exception ex)
             {
@@ -33,8 +36,9 @@ namespace ConsoleReadObserver
             // Set up the hook
             try
             {
-                var hook = LocalHook.Create(LocalHook.GetProcAddress("Kernel32.dll", "ReadConsoleA"), new Delegates.ReadConsoleA(MyReadConsoleA), this);
+                var hook = LocalHook.Create(LocalHook.GetProcAddress("KernelBase.dll", "ReadConsoleA"), new Delegates.ReadConsoleA(MyReadConsoleA), this);
                 hook.ThreadACL.SetExclusiveACL(new Int32[] { 0 });
+                Interface.ReadCalled();
             }
             catch (Exception e)
             {
@@ -51,19 +55,31 @@ namespace ConsoleReadObserver
             }
         }
 
-        [DllImport("Kernel32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
-        static extern bool ReadConsoleA(IntPtr hConsoleInput, StringBuilder lpBuffer, uint nNumberOfCharsToRead, out uint lpNumberOfCharsRead, IntPtr lpReserved);
-        bool MyReadConsoleA(IntPtr hConsoleInput, StringBuilder lpBuffer, uint nNumberOfCharsToRead, out uint lpNumberOfCharsRead, IntPtr lpReserved)
+        [DllImport("KernelBase.dll", CharSet = CharSet.Ansi, SetLastError = true)]
+        static extern bool ReadConsoleA( IntPtr hConsoleInput, StringBuilder lpBuffer, uint nNumberOfCharsToRead, out uint lpNumberOfCharsRead, IntPtr lpReserved);
+
+
+        static bool MyReadConsoleA(IntPtr hConsoleInput, StringBuilder lpBuffer, uint nNumberOfCharsToRead, out uint lpNumberOfCharsRead, IntPtr lpReserved)
         {
+            LogToFile("MyReadConsoleA called");
             try
             {
-                Interface.ReadCalled();
+                ((InjectionEntryPoint)HookRuntimeInfo.Callback).Interface.ReadCalled();
             }
             catch (Exception ex)
             {
-                Interface.HandleError(ex);
+                ((InjectionEntryPoint)HookRuntimeInfo.Callback).Interface.HandleError(ex);
             }
             return ReadConsoleA(hConsoleInput, lpBuffer, nNumberOfCharsToRead, out lpNumberOfCharsRead, lpReserved);
+        }
+
+        private static void LogToFile(string message)
+        {
+            string filePath = @"C:\Users\Sharp\source\repos\Sharp336\GPTtoWIN\log.txt";
+            using (StreamWriter writer = new StreamWriter(filePath, true))
+            {
+                writer.WriteLine($"{DateTime.Now}: {message}");
+            }
         }
     }
 
