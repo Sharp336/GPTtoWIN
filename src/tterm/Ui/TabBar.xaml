@@ -36,21 +36,22 @@
                     <Setter Property="MinHeight" Value="5" />
                 </Trigger>
             </Style.Triggers>
-            
+
         </Style>
         <Style TargetType="Button">
             <Setter Property="Content" Value="{Binding Title}" />
             <Setter Property="Foreground" Value="{DynamicResource TabButtonFgActive}" />
             <Setter Property="Background" Value="{DynamicResource TabButtonBgInactive}" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="Padding" Value="5,0" />
-            <Setter Property="Margin" Value="5,2,0,2" />
+            <Setter Property="Margin" Value="3,2" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Button}">
                         <Border x:Name="Border"
+                                CornerRadius="3"
                         Background="{TemplateBinding Background}"
                         Padding="{TemplateBinding Padding}"
                         Margin="{TemplateBinding Margin}"
@@ -97,7 +98,7 @@
         <ItemsControl ItemsSource="{Binding}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal"/>
+                    <UniformGrid Rows="1"/>
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>

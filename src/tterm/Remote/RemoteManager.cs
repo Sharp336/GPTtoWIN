@@ -22,8 +22,10 @@ namespace tterm.Remote
         public event Action<string> MessageReceived;
         public event Action<string, bool> StateHasChanged;
 
-        public RemoteManager()
+        public RemoteManager(Action<string> messageReceived, Action<string, bool> stateHasChanged)
         {
+            MessageReceived = messageReceived;
+            StateHasChanged = stateHasChanged;
             StartWebSocketServer();
         }
 
@@ -32,7 +34,7 @@ namespace tterm.Remote
             try
             {
                 _httpListener = new HttpListener();
-                _httpListener.Prefixes.Add("http://localhost:5000/");
+                _httpListener.Prefixes.Add("http://localhost:5001/");
                 _httpListener.Start();
 
                 await AcceptClients(_httpListener);
@@ -47,6 +49,7 @@ namespace tterm.Remote
 
         private async Task AcceptClients(HttpListener httpListener)
         {
+            StateHasChanged("Awaiting connection", false);
             while (true)
             {
                 try
@@ -63,6 +66,7 @@ namespace tterm.Remote
                     {
                         httpContext.Response.StatusCode = 400;
                         httpContext.Response.Close();
+                        StateHasChanged("Awaiting connection", false);
                     }
                 }
                 catch (Exception ex)

@@ -1,13 +1,14 @@
 ﻿using System;
+using System.ComponentModel;
 using MahApps.Metro.IconPacks;
 using PropertyChanged;
 using tterm.Terminal;
 
 namespace tterm.Ui.Models
 {
-    [ImplementPropertyChanged]
-    internal class TabDataItem
+    internal class TabDataItem : INotifyPropertyChanged
     {
+        public event PropertyChangedEventHandler PropertyChanged;
         public string Title { get; set; }
         public PackIconMaterialKind Image { get; set; }
 

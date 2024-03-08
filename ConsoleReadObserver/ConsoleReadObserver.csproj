@@ -49,6 +49,12 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\src\tterm\tterm.csproj">
+      <Project>{8bf6c7c8-2b7a-4833-9ab7-6c3e39acd776}</Project>
+      <Name>tterm</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="EasyHook32.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -70,12 +76,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\src\tterm\tterm.csproj">
-      <Project>{8bf6c7c8-2b7a-4833-9ab7-6c3e39acd776}</Project>
-      <Name>tterm</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

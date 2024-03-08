@@ -55,8 +55,6 @@ namespace tterm.Terminal
             RunOutputLoop();
         }
 
-        public void Sex() => _pty.StartObserving();
-
         public void Dispose()
         {
             if (!_disposed)

@@ -13,6 +13,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using tterm.Ansi;
+using tterm.Extensions;
 using tterm.Terminal;
 using SelectionMode = tterm.Terminal.SelectionMode;
 
@@ -57,6 +58,8 @@ namespace tterm.Ui
         private StringBuilder _lastCollectedResult = new StringBuilder();
         private TerminalTagArray _lastCommandLineTags = new TerminalTagArray();
 
+        int? cmdPid;
+
         public TerminalSession Session
         {
             get => _session;
@@ -76,6 +79,7 @@ namespace tterm.Ui
                         _session.BufferSizeChanged += OnBufferSizeChanged;
                     }
                     UpdateContent();
+                    cmdPid = ProcessExtensions.FindCmdProcessPidWithWinptyAgentParent();
                 }
             }
         }
@@ -339,7 +343,6 @@ namespace tterm.Ui
                             _isCollectingNewResult = false;
                         }
                     }
-
                     _lastUpdateTick = Environment.TickCount;
                 });
             }
@@ -351,6 +354,28 @@ namespace tterm.Ui
                     Children.Clear();
                 });
             }
+        }
+
+        public  bool IsProcessWaitExecutive(int processId)
+        {
+            try
+            {
+                var process = Process.GetProcessById(processId);
+                foreach (ProcessThread thread in process.Threads)
+                {
+                    if (thread.ThreadState == System.Diagnostics.ThreadState.Wait &&
+                        thread.WaitReason == ThreadWaitReason.Executive)
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.Message);
+                // Handle exceptions, such as process not found.
+            }
+            return false;
         }
 
         public void ClearLastCommandLineTags() => _lastCommandLineTags = new TerminalTagArray();
@@ -752,6 +777,9 @@ namespace tterm.Ui
         private void OnOutputReceived(object sender, EventArgs e)
         {
             UpdateContent();
+
+            if (cmdPid != null) Console.WriteLine(IsProcessWaitExecutive((int)cmdPid));
+            else Console.WriteLine("cmdPid = null");
         }
 
         private void OnBufferSizeChanged(object sender, EventArgs e)

@@ -7,7 +7,6 @@ using System.Text;
 using tterm.Terminal;
 using tterm.Extensions;
 using tterm.Remote;
-using EasyHook;
 using static tterm.Native.Win32;
 using static winpty.WinPty;
 //using ConsoleReadObserver;
@@ -97,29 +96,7 @@ namespace tterm.Ansi
             }
         }
 
-        public void StartObserving()
-        {
-            int? cmdPid = ProcessExtensions.FindCmdProcessPidWithWinptyAgentParent();
-            if (cmdPid.HasValue)
-            {
-                IpcChannel = RemoteHooking.IpcCreateServer<RemoteControl>(ref name, System.Runtime.Remoting.WellKnownObjectMode.Singleton);
-
-                Console.WriteLine(cmdPid);
-                try
-                {
-                    RemoteHooking.Inject((int)cmdPid, InjectionOptions.DoNotRequireStrongName, currdir + "ConsoleReadObserver.dll", currdir + "ConsoleReadObserver.dll", new Object[] { IpcChannel.ChannelName });
-                }
-                catch (FileNotFoundException e)
-                {
-                    Console.WriteLine(e.ToString());
-                }
-
-            }
-            else
-            {
-                Console.WriteLine("No matching process found.");
-            }
-        }
+        
 
         ~WinPty()
         {

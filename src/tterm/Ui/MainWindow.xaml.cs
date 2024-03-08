@@ -1,27 +1,24 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
-using System.Net;
-using System.Net.WebSockets;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using MahApps.Metro.IconPacks;
-using tterm.Ansi;
-using tterm.Extensions;
 using tterm.Remote;
 using tterm.Terminal;
 using tterm.Ui.Models;
+
 
 namespace tterm.Ui
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
+    /// 
+
+
     public partial class MainWindow : EnhancedWindow
     {
         private const int MinColumns = 52;
@@ -42,8 +39,14 @@ namespace tterm.Ui
 
         private RemoteManager _remoteManager;
         private string _lastRecievedMessage = "";
+        private string _remoteStatus = "Initialized";
 
-        private TabDataItem _addSessionTab = new TabDataItem() { Image = PackIconMaterialKind.Plus };
+        private TabDataItem AutoSendTab = new TabDataItem() { Title = "Auto-send" };
+        private TabDataItem SendOutputTab = new TabDataItem() { Title = "Send output" };
+        private TabDataItem AutoTypeTab = new TabDataItem() { Title = "Auto-type" };
+        private TabDataItem AutoExecuteTab = new TabDataItem() { Title = "Auto-execute", IsDisabled = true };
+        private TabDataItem TypeReceivedTab = new TabDataItem() { Title = "Type received", IsDisabled = true };
+        private TabDataItem ExecuteReceivedTab = new TabDataItem() { Title = "Execute received", IsDisabled = true };
 
         public bool Ready
         {
@@ -69,45 +72,76 @@ namespace tterm.Ui
                 AllowsTransparency = true;
             }
 
+            this.LocationChanged += MainWindow_LocationChanged;
+
             resizeHint.Visibility = Visibility.Hidden;
 
-            InitializeTabs();
+            _remoteManager = new RemoteManager(OnMessageReceived, OnConnectionStateChanged);
+        }
+
+        private void MainWindow_LocationChanged(object sender, EventArgs e)
+        {
+            UpdatePopupPosition(LeftPopup);
+            UpdatePopupPosition(RightPopup);
+        }
+
+        private void UpdatePopupPosition(Popup popup)
+        {
+            if (popup.IsOpen)
+            {
+                popup.IsOpen = false; // Закрытие для обновления позиции
+                popup.IsOpen = true; // Восстановление предыдущего состояния
+            }
         }
 
         protected override void OnInitialized(EventArgs e)
         {
             base.OnInitialized(e);
             _tickInitialised = Environment.TickCount;
-            _remoteManager = new RemoteManager();
-            _remoteManager.StateHasChanged += OnConnectionStateChanged;
-            _remoteManager.MessageReceived += OnMessageReceived;
-        }
 
-        private void InitializeTabs()
-        {
-            tabBar.DataContext = _tabs;
-
-            InitializeTab("Starting WebSocket server", Test_Click);
-            InitializeTab("Auto-send output", ToggleAutoSend_Click);
-            InitializeTab("Send last output", SendLastOutputManually_Click);
-            InitializeTab("Auto-type received", AutoTypeToggleTab_Click);
-            InitializeTab("Auto-execute received", AutoExecuteToggleTab_Click, isDisabled: true);
-            InitializeTab("Type received", TypeRecievedManuallyTab_Click, isDisabled: true);
-            InitializeTab("Execute received message", ExecuteManuallyTab_Click, isDisabled: true);
-        }
-
-        private void InitializeTab(string title, EventHandler clickHandler, bool isDisabled = false)
-        {
-            var tab = new TabDataItem
+            LeftButton.Click += (sender, args) =>
             {
-                Title = title,
-                IsDisabled = isDisabled
+                LeftPopup.IsOpen = !LeftPopup.IsOpen; // Переключение состояния Popup
             };
 
-            if (clickHandler != null)
+            RightButton.Click += (sender, args) =>
             {
-                tab.Click += clickHandler;
-            }
+                RightPopup.IsOpen = !RightPopup.IsOpen; // Переключение состояния Popup
+            };
+
+            LeftButton.Content = new PackIconMaterial { Kind = PackIconMaterialKind.Network };
+            RightButton.Content = new PackIconMaterial { Kind = PackIconMaterialKind.Settings };
+
+            tabBar.DataContext = _tabs;
+
+            AutoSendTab.Click += ToggleAutoSend_Click;
+            SendOutputTab.Click += SendLastOutputManually_Click;
+            AutoTypeTab.Click += AutoTypeToggleTab_Click;
+            AutoExecuteTab.Click += AutoExecuteToggleTab_Click;
+            TypeReceivedTab.Click += TypeRecievedManuallyTab_Click;
+            ExecuteReceivedTab.Click += ExecuteManuallyTab_Click;
+
+            RightButton.Click += Test_Click;
+        }
+
+        private void AddTabs()
+        {
+            _tabs.Add(AutoSendTab);
+            _tabs.Add(SendOutputTab);
+            _tabs.Add(AutoTypeTab);
+            _tabs.Add(AutoExecuteTab);
+            _tabs.Add(TypeReceivedTab);
+            _tabs.Add(ExecuteReceivedTab);
+        }
+
+        private void InitializeTab(string title, EventHandler clickHandler, PackIconMaterialKind icon = PackIconMaterialKind.None, bool isDisabled = false)
+        {
+            var tab = new TabDataItem { IsDisabled = isDisabled };
+
+            if (icon != PackIconMaterialKind.None) tab.Image = icon;
+            else tab.Title = title;
+
+            if (clickHandler != null) tab.Click += clickHandler;
 
             _tabs.Add(tab);
         }
@@ -115,12 +149,27 @@ namespace tterm.Ui
         private void Test_Click(object sender, EventArgs e)
         {
 
-            Dispatcher.InvokeAsync(() =>
-            {
-                _currentSession.Sex();
-            });
             terminalControl.Focus();
         }
+
+
+        public void MonitorConsoleProcess()
+        {
+            Process[] processes = Process.GetProcessesByName("cmd");
+            foreach (Process proc in processes)
+            {
+                foreach (ProcessThread thread in proc.Threads)
+                {
+
+                    if (thread.ThreadState == System.Diagnostics.ThreadState.Wait
+                        && (thread.WaitReason == ThreadWaitReason.UserRequest || thread.WaitReason == ThreadWaitReason.LpcReply))
+                    {
+                        Debug.WriteLine($"Cmd is waiting due to: {thread.WaitReason}");
+                    }
+                }
+            }
+        }
+
 
         private void NewSessionTab_Click(object sender, EventArgs e)
         {
@@ -157,8 +206,8 @@ namespace tterm.Ui
             if (tab != null)
             {
                 tab.IsActive = !tab.IsActive;
-                if (!tab.IsActive) _tabs[4].IsActive = false;
-                _tabs[4].IsDisabled = !tab.IsActive;
+                if (!tab.IsActive) AutoExecuteTab.IsActive = false;
+                AutoExecuteTab.IsDisabled = !tab.IsActive;
             }
             terminalControl.Focus();
         }
@@ -206,8 +255,7 @@ namespace tterm.Ui
 
         private void OnConnectionStateChanged(string status, bool isConnected)
         {
-            _tabs[0].Title = status;
-            _tabs[0].IsActive = isConnected;
+            LeftButton.Content = new PackIconMaterial { Kind = isConnected ? PackIconMaterialKind.NetworkDownload : PackIconMaterialKind.CloseNetwork };
         }
 
         private void OnMessageReceived(string message)
@@ -215,17 +263,17 @@ namespace tterm.Ui
             if (!string.IsNullOrWhiteSpace(message))
             {
                 _lastRecievedMessage = message;
-                _tabs[5].IsDisabled = false;
-                _tabs[6].IsDisabled = false;
-                if (_tabs[3].IsActive)
+                TypeReceivedTab.IsDisabled = false;
+                ExecuteReceivedTab.IsDisabled = false;
+                if (AutoTypeTab.IsActive)
                 {
-                    terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, _tabs[4].IsActive);
+                    terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, AutoExecuteTab.IsActive);
                 }
             }
             else
             {
-                _tabs[5].IsDisabled = true;
-                _tabs[6].IsDisabled = true;
+                TypeReceivedTab.IsDisabled = true;
+                ExecuteReceivedTab.IsDisabled = true;
             }
         }
 
@@ -244,8 +292,8 @@ namespace tterm.Ui
             session.Finished += OnSessionFinished;
 
             ChangeSession(session);
-            
-            
+
+
         }
 
         private void ChangeSession(TerminalSession session)
@@ -263,11 +311,15 @@ namespace tterm.Ui
                 {
                     session.Active = true;
                     session.Size = _terminalSize;
+
+                    _tabs.Clear();
+                    AddTabs();
                 }
 
                 terminalControl.Session = session;
                 terminalControl.LastResultCollected += SendAutoCollectedResult;
                 terminalControl.Focus();
+
             }
         }
 
@@ -284,7 +336,7 @@ namespace tterm.Ui
         private void OnSessionTitleChanged(object sender, EventArgs e)
         {
             var session = sender as TerminalSession;
-            
+
             Dispatcher.InvokeAsync(() =>
             {
                 this.Title = session.Title;
@@ -295,7 +347,9 @@ namespace tterm.Ui
         {
             var session = sender as TerminalSession;
             ChangeSession(null);
-            _tabs.Add(_addSessionTab);
+            session.Dispose();
+            _tabs.Clear();
+            InitializeTab("Start new session", NewSessionTab_Click, PackIconMaterialKind.Plus);
         }
 
         private static Profile ExpandVariables(Profile profile)
