@@ -65,7 +65,7 @@
                     </StackPanel>
                     <TextBlock x:Name="StatusTextBlock" Text="Status: undefined" Margin="0,5,0,0"/>
                     <TextBlock Text="Last received:" Margin="0,5,0,0"/>
-                    <TextBox x:Name="LastReceivedTextBox" Text="{Binding LastReceivedMessage}" TextWrapping="Wrap" MaxHeight="60" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+                    <TextBox x:Name="LastReceivedTextBox" Text="" TextWrapping="Wrap" MaxHeight="70" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
                 </StackPanel>
             </Border>
         </Popup>

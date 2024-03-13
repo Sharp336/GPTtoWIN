@@ -248,7 +248,6 @@ namespace tterm.Ui
             if (tab != null)
             {
                 tab.IsActive = !tab.IsActive;
-                terminalControl.isAutoSendOn = tab.IsActive;
             }
             terminalControl.Focus();
         }
@@ -306,14 +305,14 @@ namespace tterm.Ui
 
             int columns = Math.Max(config.Columns, MinColumns);
             int rows = Math.Max(config.Rows, MinRows);
+
             _terminalSize = new TerminalSize(columns, rows);
             FixWindowSize();
 
             Profile profile = config.Profile;
-            if (profile == null)
-            {
-                profile = DefaultProfile.Get();
-            }
+
+            terminalControl.PromtRegexList = profile.Regexps.Select(s => new Regex(s)).ToList();
+
             _defaultProfile = ExpandVariables(profile);
             CreateSession(_defaultProfile);
         }
@@ -333,6 +332,7 @@ namespace tterm.Ui
         {
             if (!string.IsNullOrWhiteSpace(message))
             {
+                LastReceivedTextBox.Text = message;
                 TypeReceivedTab.IsDisabled = false;
                 ExecuteReceivedTab.IsDisabled = false;
                 if (AutoTypeTab.IsActive)
@@ -387,15 +387,15 @@ namespace tterm.Ui
                 }
 
                 terminalControl.Session = session;
-                terminalControl.LastResultCollected += SendAutoCollectedResult;
+                terminalControl.LastResultCollected += ProcessCollectedResult;
                 terminalControl.Focus();
 
             }
         }
 
-        private async void SendAutoCollectedResult(object sender, string result)
+        private async void ProcessCollectedResult(object sender, string result)
         {
-            await _remoteManager.TrySendingMessage(result);
+            if(AutoSendTab.IsActive) await _remoteManager.TrySendingMessage(result);
         }
 
         private void CloseSession(TerminalSession session)
