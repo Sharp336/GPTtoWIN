@@ -1,11 +1,15 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Threading;
 using MahApps.Metro.IconPacks;
+using Microsoft.Toolkit.Uwp.Notifications;
 using tterm.Remote;
 using tterm.Terminal;
 using tterm.Ui.Models;
@@ -18,8 +22,7 @@ namespace tterm.Ui
     /// </summary>
     /// 
 
-
-    public partial class MainWindow : EnhancedWindow
+    public partial class MainWindow : EnhancedWindow, INotifyPropertyChanged
     {
         private const int MinColumns = 52;
         private const int MinRows = 4;
@@ -36,10 +39,31 @@ namespace tterm.Ui
         private TerminalSession _currentSession;
         private TerminalSize _terminalSize;
         private Profile _defaultProfile;
+        private DispatcherTimer leftPopupTimer = new DispatcherTimer();
+        private DispatcherTimer rightPopupTimer = new DispatcherTimer();
 
         private RemoteManager _remoteManager;
-        private string _lastRecievedMessage = "";
-        private string _remoteStatus = "Initialized";
+
+        private void WsPortTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            // Регулярное выражение, проверяющее, что вводится только число
+            e.Handled = !Regex.IsMatch(e.Text, "^[0-9]+$");
+        }
+
+        private void WsPortTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(WsPortTextBox.Text, out int newPort) && _remoteManager.IsPortValid(newPort))
+            {
+                // Если введенное значение является числом в допустимом диапазоне, обновите порт
+                _remoteManager.WsPort = newPort;
+            }
+            else
+            {
+                // Если введенное значение недопустимо, верните предыдущее допустимое значение
+                WsPortTextBox.Text = _remoteManager.WsPort.ToString();
+                MessageBox.Show("Please enter a valid port number (1-65535).", "Attention!");
+            }
+        }
 
         private TabDataItem AutoSendTab = new TabDataItem() { Title = "Auto-send" };
         private TabDataItem SendOutputTab = new TabDataItem() { Title = "Send output" };
@@ -47,6 +71,12 @@ namespace tterm.Ui
         private TabDataItem AutoExecuteTab = new TabDataItem() { Title = "Auto-execute", IsDisabled = true };
         private TabDataItem TypeReceivedTab = new TabDataItem() { Title = "Type received", IsDisabled = true };
         private TabDataItem ExecuteReceivedTab = new TabDataItem() { Title = "Execute received", IsDisabled = true };
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected virtual void OnPropertyChanged(string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
         public bool Ready
         {
@@ -73,10 +103,28 @@ namespace tterm.Ui
             }
 
             this.LocationChanged += MainWindow_LocationChanged;
+            this.Deactivated += MainWindow_Deactivated;
 
             resizeHint.Visibility = Visibility.Hidden;
 
+            // Настройка таймера для левого попапа
+            leftPopupTimer.Interval = TimeSpan.FromMilliseconds(50); // Задержка перед повторным открытием
+            leftPopupTimer.Tick += (s, e) =>
+            {
+                LeftPopup.IsOpen = true;
+                leftPopupTimer.Stop();
+            };
+
+            // Настройка таймера для правого попапа
+            rightPopupTimer.Interval = TimeSpan.FromMilliseconds(50); // Задержка перед повторным открытием
+            rightPopupTimer.Tick += (s, e) =>
+            {
+                RightPopup.IsOpen = true;
+                rightPopupTimer.Stop();
+            };
+
             _remoteManager = new RemoteManager(OnMessageReceived, OnConnectionStateChanged);
+            WsPortTextBox.Text = _remoteManager.WsPort.ToString();
         }
 
         private void MainWindow_LocationChanged(object sender, EventArgs e)
@@ -84,15 +132,26 @@ namespace tterm.Ui
             UpdatePopupPosition(LeftPopup);
             UpdatePopupPosition(RightPopup);
         }
+        private void MainWindow_Deactivated(object sender, EventArgs e)
+        {
+            LeftPopup.IsOpen = false;
+            RightPopup.IsOpen = false;
+        }
 
         private void UpdatePopupPosition(Popup popup)
         {
-            if (popup.IsOpen)
+            bool wasOpen = popup.IsOpen;
+            if (wasOpen)
             {
                 popup.IsOpen = false; // Закрытие для обновления позиции
-                popup.IsOpen = true; // Восстановление предыдущего состояния
+
+                // Определяем, какой таймер использовать на основе переданного попапа
+                var timer = popup == LeftPopup ? leftPopupTimer : rightPopupTimer;
+                timer.Stop(); // Остановим таймер на случай, если он уже запущен
+                timer.Start(); // Запускаем таймер для отложенного повторного открытия
             }
         }
+
 
         protected override void OnInitialized(EventArgs e)
         {
@@ -109,10 +168,11 @@ namespace tterm.Ui
                 RightPopup.IsOpen = !RightPopup.IsOpen; // Переключение состояния Popup
             };
 
-            LeftButton.Content = new PackIconMaterial { Kind = PackIconMaterialKind.Network };
+            LeftButton.Content = new PackIconMaterial { Kind = PackIconMaterialKind.CloseNetwork };
             RightButton.Content = new PackIconMaterial { Kind = PackIconMaterialKind.Settings };
 
             tabBar.DataContext = _tabs;
+            DataContext = this;
 
             AutoSendTab.Click += ToggleAutoSend_Click;
             SendOutputTab.Click += SendLastOutputManually_Click;
@@ -134,41 +194,46 @@ namespace tterm.Ui
             _tabs.Add(ExecuteReceivedTab);
         }
 
-        private void InitializeTab(string title, EventHandler clickHandler, PackIconMaterialKind icon = PackIconMaterialKind.None, bool isDisabled = false)
-        {
-            var tab = new TabDataItem { IsDisabled = isDisabled };
+        //private void InitializeTab(string title, EventHandler clickHandler, PackIconMaterialKind icon = PackIconMaterialKind.None, bool isDisabled = false)
+        //{
+        //    var tab = new TabDataItem { IsDisabled = isDisabled };
 
-            if (icon != PackIconMaterialKind.None) tab.Image = icon;
-            else tab.Title = title;
+        //    if (icon != PackIconMaterialKind.None) tab.Image = icon;
+        //    else tab.Title = title;
 
-            if (clickHandler != null) tab.Click += clickHandler;
+        //    if (clickHandler != null) tab.Click += clickHandler;
 
-            _tabs.Add(tab);
-        }
+        //    _tabs.Add(tab);
+        //}
 
         private void Test_Click(object sender, EventArgs e)
         {
-
+            new ToastContentBuilder()
+                .AddArgument("action", "viewConversation")
+                .AddArgument("conversationId", 9813)
+                .AddText($"WS port is: {_remoteManager.WsPort}")
+                .AddText("Check this out, The Enchantments in Washington!")
+                .Show();
             terminalControl.Focus();
         }
 
 
-        public void MonitorConsoleProcess()
-        {
-            Process[] processes = Process.GetProcessesByName("cmd");
-            foreach (Process proc in processes)
-            {
-                foreach (ProcessThread thread in proc.Threads)
-                {
+        //public void MonitorConsoleProcess()
+        //{
+        //    Process[] processes = Process.GetProcessesByName("cmd");
+        //    foreach (Process proc in processes)
+        //    {
+        //        foreach (ProcessThread thread in proc.Threads)
+        //        {
 
-                    if (thread.ThreadState == System.Diagnostics.ThreadState.Wait
-                        && (thread.WaitReason == ThreadWaitReason.UserRequest || thread.WaitReason == ThreadWaitReason.LpcReply))
-                    {
-                        Debug.WriteLine($"Cmd is waiting due to: {thread.WaitReason}");
-                    }
-                }
-            }
-        }
+        //            if (thread.ThreadState == ThreadState.Wait
+        //                && (thread.WaitReason == ThreadWaitReason.UserRequest || thread.WaitReason == ThreadWaitReason.LpcReply))
+        //            {
+        //                Debug.WriteLine($"Cmd is waiting due to: {thread.WaitReason}");
+        //            }
+        //        }
+        //    }
+        //}
 
 
         private void NewSessionTab_Click(object sender, EventArgs e)
@@ -222,14 +287,14 @@ namespace tterm.Ui
         private void TypeRecievedManuallyTab_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
-            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, false);
+            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_remoteManager.LastRecievedMessage, false);
             terminalControl.Focus();
         }
 
         private void ExecuteManuallyTab_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
-            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, true);
+            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_remoteManager.LastRecievedMessage, true);
             terminalControl.Focus();
         }
 
@@ -255,19 +320,24 @@ namespace tterm.Ui
 
         private void OnConnectionStateChanged(string status, bool isConnected)
         {
-            LeftButton.Content = new PackIconMaterial { Kind = isConnected ? PackIconMaterialKind.NetworkDownload : PackIconMaterialKind.CloseNetwork };
+            Debug.WriteLine($"Updated status:\n{status}\nisConnected - {isConnected}");
+            
+            Dispatcher.InvokeAsync(() =>
+            {
+                LeftButton.Content = new PackIconMaterial { Kind = isConnected ? PackIconMaterialKind.NetworkDownload : PackIconMaterialKind.CloseNetwork };
+                StatusTextBlock.Text = $"Status: {status}";
+            });
         }
 
         private void OnMessageReceived(string message)
         {
             if (!string.IsNullOrWhiteSpace(message))
             {
-                _lastRecievedMessage = message;
                 TypeReceivedTab.IsDisabled = false;
                 ExecuteReceivedTab.IsDisabled = false;
                 if (AutoTypeTab.IsActive)
                 {
-                    terminalControl.TypeAndMaybeExecute(_lastRecievedMessage, AutoExecuteTab.IsActive);
+                    terminalControl.TypeAndMaybeExecute(message, AutoExecuteTab.IsActive);
                 }
             }
             else
@@ -349,7 +419,10 @@ namespace tterm.Ui
             ChangeSession(null);
             session.Dispose();
             _tabs.Clear();
-            InitializeTab("Start new session", NewSessionTab_Click, PackIconMaterialKind.Plus);
+
+            TabDataItem newSessionTab = new TabDataItem() { Title = "Start new session", Image = PackIconMaterialKind.Plus };
+            newSessionTab.Click += NewSessionTab_Click;
+            _tabs.Add(newSessionTab);
         }
 
         private static Profile ExpandVariables(Profile profile)

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
 using MahApps.Metro.IconPacks;
-using PropertyChanged;
 using tterm.Terminal;
 
 namespace tterm.Ui.Models

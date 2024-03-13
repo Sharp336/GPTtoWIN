@@ -56,8 +56,17 @@
         </Button>
 
         <Popup x:Name="LeftPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=LeftButton}" IsOpen="False" AllowsTransparency="False" PopupAnimation="Slide" HorizontalOffset="25" VerticalOffset="5">
-            <Border Background="{DynamicResource TabButtonBgDisabled}" Width="200" Height="100" CornerRadius="0,5,5,5">
-                <TextBlock Text="Это всплывающее окно слева" Margin="10"/>
+            <Border Background="{DynamicResource TabButtonBgDisabled}" Width="200" CornerRadius="0,5,5,5">
+                <StackPanel Margin="10">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="WS port: " VerticalAlignment="Center"/>
+                        <TextBox Name="WsPortTextBox" Width="100" BorderThickness="1" Background="Transparent" LostFocus="WsPortTextBox_LostFocus" PreviewTextInput="WsPortTextBox_PreviewTextInput" />
+
+                    </StackPanel>
+                    <TextBlock x:Name="StatusTextBlock" Text="Status: undefined" Margin="0,5,0,0"/>
+                    <TextBlock Text="Last received:" Margin="0,5,0,0"/>
+                    <TextBox x:Name="LastReceivedTextBox" Text="{Binding LastReceivedMessage}" TextWrapping="Wrap" MaxHeight="60" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+                </StackPanel>
             </Border>
         </Popup>
 

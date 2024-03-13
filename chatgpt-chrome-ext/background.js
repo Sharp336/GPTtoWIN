@@ -51,7 +51,7 @@ const MAX_RECONNECT_ATTEMPTS = 12; // Максимум 12 попыток в те
             // Подключаемся только если есть хотя бы одна целевая вкладка
             try {
                 // Подключаемся только если есть хотя бы одна целевая вкладка
-                ws = new WebSocket('ws://localhost:5000/');
+                ws = new WebSocket('ws://localhost:5001/');
 
                 ws.onopen = function () {
                     console.log('WebSocket connection opened.');
