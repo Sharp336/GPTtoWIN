@@ -44,6 +44,30 @@ namespace tterm.Ui
 
         private RemoteManager _remoteManager;
 
+        private TabDataItem AutoSendTab = new TabDataItem() { Title = "Auto-send" };
+        private TabDataItem SendOutputTab = new TabDataItem() { Title = "Send output" };
+        private TabDataItem AutoTypeTab = new TabDataItem() { Title = "Auto-type" };
+        private TabDataItem AutoExecuteTab = new TabDataItem() { Title = "Auto-execute", IsDisabled = true };
+        private TabDataItem TypeReceivedTab = new TabDataItem() { Title = "Type received", IsDisabled = true };
+        private TabDataItem ExecuteReceivedTab = new TabDataItem() { Title = "Execute received", IsDisabled = true };
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private bool _isNotificationsOn = false;
+
+        public bool IsNotificationsOn
+        {
+            get => _isNotificationsOn;
+            set
+            {
+                if (_isNotificationsOn != value)
+                {
+                    _isNotificationsOn = value;
+                    OnPropertyChanged(nameof(IsNotificationsOn));
+                }
+            }
+        }
+
         private void WsPortTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
         {
             // Регулярное выражение, проверяющее, что вводится только число
@@ -64,15 +88,6 @@ namespace tterm.Ui
                 MessageBox.Show("Please enter a valid port number (1-65535).", "Attention!");
             }
         }
-
-        private TabDataItem AutoSendTab = new TabDataItem() { Title = "Auto-send" };
-        private TabDataItem SendOutputTab = new TabDataItem() { Title = "Send output" };
-        private TabDataItem AutoTypeTab = new TabDataItem() { Title = "Auto-type" };
-        private TabDataItem AutoExecuteTab = new TabDataItem() { Title = "Auto-execute", IsDisabled = true };
-        private TabDataItem TypeReceivedTab = new TabDataItem() { Title = "Type received", IsDisabled = true };
-        private TabDataItem ExecuteReceivedTab = new TabDataItem() { Title = "Execute received", IsDisabled = true };
-
-        public event PropertyChangedEventHandler PropertyChanged;
         protected virtual void OnPropertyChanged(string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -180,8 +195,6 @@ namespace tterm.Ui
             AutoExecuteTab.Click += AutoExecuteToggleTab_Click;
             TypeReceivedTab.Click += TypeRecievedManuallyTab_Click;
             ExecuteReceivedTab.Click += ExecuteManuallyTab_Click;
-
-            RightButton.Click += Test_Click;
         }
 
         private void AddTabs()
@@ -396,6 +409,25 @@ namespace tterm.Ui
         private async void ProcessCollectedResult(object sender, string result)
         {
             if(AutoSendTab.IsActive) await _remoteManager.TrySendingMessage(result);
+            if (IsNotificationsOn) SendCommandResultNotification("Команда завершила выполнение", result);
+        }
+
+        // Метод для отправки уведомления
+        public void SendCommandResultNotification(string title, string commandResult)
+        {
+            // Создание содержимого уведомления
+            new ToastContentBuilder()
+                .AddText(title) // Добавление заголовка уведомления
+                .AddText("Результат команды:") // Подзаголовок
+                .AddText(commandResult) // Добавление текста с результатом выполнения команды
+                                        // Добавление текстового поля для ввода новой команды
+                .AddInputTextBox("commandInput", placeHolderContent: "Введите следующую команду...")
+                // Добавление кнопки для отправки команды (пример использования: открытие приложения)
+                .AddButton(new ToastButton()
+                    .SetContent("Открыть приложение")
+                    .AddArgument("action", "openApp")
+                    .SetBackgroundActivation()) // Указание на необходимость активации в фоновом режиме
+                .Show(); // Отображение уведомления
         }
 
         private void CloseSession(TerminalSession session)

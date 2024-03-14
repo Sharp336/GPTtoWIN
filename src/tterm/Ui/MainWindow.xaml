@@ -77,10 +77,14 @@
         </Button>
 
         <Popup x:Name="RightPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=RightButton}" IsOpen="False" AllowsTransparency="False" PopupAnimation="Slide" HorizontalOffset="-200" VerticalOffset="5">
-            <Border Background="{DynamicResource TabButtonBgDisabled}" Width="200" Height="100" CornerRadius="5,0,5,5">
-                <TextBlock Text="Это всплывающее окно справа" Margin="10"/>
+            <Border Background="{DynamicResource TabButtonBgDisabled}" Width="200" Height="150" CornerRadius="5,0,5,5">
+                <StackPanel Margin="10">
+                    <TextBlock Text="Настройки" FontWeight="Bold"/>
+                    <ToggleButton x:Name="ToggleNotifications" Content="Отправка уведомлений" IsChecked="{Binding Path=IsNotificationsOn, Mode=TwoWay}" Margin="0,10,0,0"/>
+                </StackPanel>
             </Border>
         </Popup>
+
 
         <Grid Grid.Row="1" Grid.ColumnSpan="3">
             <local:TerminalControl x:Name="terminalControl"
