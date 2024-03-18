@@ -28,6 +28,7 @@ namespace tterm
                 Fork(sessionPid);
                 Shutdown();
             }
+
         }
 
         private int GetTTERMSessionPid()

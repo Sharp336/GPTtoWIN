@@ -15,6 +15,7 @@ using System.Windows.Threading;
 using tterm.Ansi;
 using tterm.Extensions;
 using tterm.Terminal;
+using static System.Net.Mime.MediaTypeNames;
 using SelectionMode = tterm.Terminal.SelectionMode;
 
 namespace tterm.Ui
@@ -47,26 +48,30 @@ namespace tterm.Ui
 
         private int _focusTick;
 
+        public bool EnableDebug = true;
+
         public event EventHandler<string> LastResultCollected;
 
-        public List<Regex> PromtRegexList = new List<Regex>() { new Regex(@"[a-zA-Z]:\\[^>]+>") };
+        private List<PromptRegexp> _promtRegexList = new List<PromptRegexp>();
+
+        public List<PromptRegexp> PromtRegexList
+        {
+            get => _promtRegexList;
+            set
+            {
+                // Фильтрация списка, исключение элементов с IsOn = false или пустым Regex
+                _promtRegexList = value.Where(r => r.IsOn && !string.IsNullOrEmpty(r.Regex)).ToList();
+                Debug.WriteLine($"Updated the _promtRegexList:\n{string.Join(",", _promtRegexList.Select(pr => pr.Name).ToArray())}");
+            }
+        }
+
 
         private bool _isCollectingNewResult = false;
-        private static Regex promptRegex = new Regex(@"[a-zA-Z]:\\[^>]+>");
         private string _lastCommandPrompt = "";
         private StringBuilder _lastCollectedResult = new StringBuilder();
         private TerminalTagArray _lastCommandLineTags = new TerminalTagArray();
 
         //int? cmdPid;
-
-        private bool IsPromt(string text)
-        {
-            foreach(Regex reg in PromtRegexList)
-            {
-                if(reg.Match(text).Success) return true;
-            }
-            return false;
-        }
 
         public TerminalSession Session
         {
@@ -332,6 +337,7 @@ namespace tterm.Ui
                 int lineCount = Buffer.Size.Rows;
                 var lineTags = new TerminalTagArray[lineCount];
                 int windowTop = Buffer.WindowTop;
+                PromptRegexp promptRegexpFound = null;
                 for (int y = 0; y < lineCount; y++)
                 {
                     lineTags[y] = Buffer.GetFormattedLine(windowTop + y);
@@ -343,14 +349,33 @@ namespace tterm.Ui
                     for (int y = 0; y < lineCount; y++)
                     {
                         _lines[y].Tags = lineTags[y];
-                        if (_isCollectingNewResult && Buffer.CursorY == y && IsPromt(lineTags[y].ToString().Trim()) )
+                        if (_isCollectingNewResult && y >= Buffer.CursorY - 1)
+                        {
+                            foreach (PromptRegexp pr in PromtRegexList)
+                            {
+                                if (new Regex(pr.Regex).Match(lineTags[y].ToString().Trim()).Success)
+                                {
+                                    Debug.WriteLine($"{pr.Name} found in UpdateContentForced");
+                                    promptRegexpFound = pr;
+                                }
+                            }
+                        }
+                    }
+                    _lastUpdateTick = Environment.TickCount;
+                    if (promptRegexpFound != null)
+                    {
+                        if (promptRegexpFound.Reply != null && promptRegexpFound.Reply.Length > 0)
+                        {
+                            Debug.WriteLine($"Executing automatic answer: {promptRegexpFound.Reply}");
+                            TypeAndMaybeExecute(promptRegexpFound.Reply, true);
+                        }
+                        else
                         {
                             Debug.WriteLine("Automatically collecting new result");
                             CollectLastResult();
                             _isCollectingNewResult = false;
                         }
                     }
-                    _lastUpdateTick = Environment.TickCount;
                 });
             }
             else
@@ -426,10 +451,13 @@ namespace tterm.Ui
                         break;
                 }
             }
+            var result = _lastCollectedResult.ToString().Trim();
 
-            LastResultCollected(this, _lastCollectedResult.ToString().Trim());
+            LastResultCollected(this, result);
 
-            return _lastCollectedResult.ToString().Trim();
+            Debug.WriteLine($"New result collected:\n{result}\n---");
+
+            return result;
         }
 
 
@@ -738,6 +766,7 @@ namespace tterm.Ui
 
         private void OnEnterKeyPressed(bool CollectLastCommandLineTags = true)
         {
+            Debug.WriteLine($"OnEnterKeyPressed, _isCollectingNewResult is {_isCollectingNewResult}");
             if (!_isCollectingNewResult)
             {
                 int LinePromptMatchY = Buffer.CursorY;
@@ -747,9 +776,9 @@ namespace tterm.Ui
                 // Итерируемся по строкам в обратном порядке, начиная с текущей позиции курсора
                 while (LinePromptMatchY >= 0 && string.IsNullOrEmpty(_lastCommandPrompt))
                 {
-                    foreach (var regex in PromtRegexList)
+                    foreach (var pr in PromtRegexList)
                     {
-                        LinePromptMatch = regex.Match(_lines[LinePromptMatchY].Tags.ToString());
+                        LinePromptMatch = new Regex(pr.Regex).Match(_lines[LinePromptMatchY].Tags.ToString());
                         if (LinePromptMatch.Success)
                         {
                             _lastCommandPrompt = LinePromptMatch.Value;
@@ -766,8 +795,9 @@ namespace tterm.Ui
                     tags.Add(new TerminalTag(promptLineTags.ToString(), new CharAttributes()));
                     _lastCommandLineTags = new TerminalTagArray(tags.ToImmutable());
                 }
-
+                //Debug.WriteLine($"_lastCollectedResult is:\n{_lastCollectedResult}\n---");
                 _lastCollectedResult.Clear();
+                //Debug.WriteLine($"_lastCollectedResult is:\n{_lastCollectedResult}\n---");
                 _isCollectingNewResult = true;
             }
         }

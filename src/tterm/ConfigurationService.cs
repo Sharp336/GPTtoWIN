@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using Newtonsoft.Json;
@@ -28,25 +30,28 @@ namespace tterm
                     var config = JsonConvert.DeserializeObject<Config>(json);
                     if (config != null)
                     {
-                        Config = config;
-                        return Config;
+                        Config = config; // Используйте десериализованные данные
                     }
                     else
                     {
-                        HandleInvalidConfig(); // Обработка некорректной конфигурации
+                        // Обработка некорректной конфигурации без перезаписи файла
+                        HandleInvalidConfig();
                     }
                 }
                 else
                 {
-                    Save(); // Создание файла с дефолтной конфигурацией
+                    Config.Profile.PromptRegexps = new List<PromptRegexp> { new PromptRegexp() { Name = "Windows default", Regex = @"[a-zA-Z]:\\[^>]+>" }, new PromptRegexp() { Name = "Yes/No", Regex = @".*\(yes\/No\)" } };
+                    Save(); // Файл конфигурации не существует, создаем его с дефолтными значениями
                 }
             }
             catch
             {
-                HandleInvalidConfig(); // Обработка ошибок десериализации
+                // Обработка ошибок десериализации без перезаписи файла
+                HandleInvalidConfig();
             }
             return Config;
         }
+
 
         private void HandleInvalidConfig()
         {

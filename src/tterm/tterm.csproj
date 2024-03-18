@@ -90,7 +90,6 @@
     <Compile Include="Extensions\EnumerableExtensions.cs" />
     <Compile Include="Extensions\ProcessExtensions.cs" />
     <Compile Include="ForkData.cs" />
-    <Compile Include="Profile.cs" />
     <Compile Include="Remote\RemoteManager.cs" />
     <Compile Include="Terminal\SelectionMode.cs" />
     <Compile Include="Terminal\TerminalBufferChar.cs" />
@@ -107,6 +106,7 @@
       <DependentUpon>ResizeHint.xaml</DependentUpon>
     </Compile>
     <Compile Include="Ui\SpecialColourIds.cs" />
+    <Compile Include="Ui\SubtractValueConverter.cs" />
     <Compile Include="Ui\TabBar.xaml.cs">
       <DependentUpon>TabBar.xaml</DependentUpon>
     </Compile>

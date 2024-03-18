@@ -1,15 +1,17 @@
-﻿using System;
+﻿using MahApps.Metro.IconPacks;
+using Microsoft.Toolkit.Uwp.Notifications;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
-using MahApps.Metro.IconPacks;
-using Microsoft.Toolkit.Uwp.Notifications;
 using tterm.Remote;
 using tterm.Terminal;
 using tterm.Ui.Models;
@@ -38,9 +40,6 @@ namespace tterm.Ui
         private TerminalSessionManager _sessionMgr = new TerminalSessionManager();
         private TerminalSession _currentSession;
         private TerminalSize _terminalSize;
-        private Profile _defaultProfile;
-        private DispatcherTimer leftPopupTimer = new DispatcherTimer();
-        private DispatcherTimer rightPopupTimer = new DispatcherTimer();
 
         private RemoteManager _remoteManager;
 
@@ -52,6 +51,7 @@ namespace tterm.Ui
         private TabDataItem ExecuteReceivedTab = new TabDataItem() { Title = "Execute received", IsDisabled = true };
 
         public event PropertyChangedEventHandler PropertyChanged;
+        public Profile DefaultProfile { get; set; }
 
         private bool _isNotificationsOn = false;
 
@@ -80,6 +80,7 @@ namespace tterm.Ui
             {
                 // Если введенное значение является числом в допустимом диапазоне, обновите порт
                 _remoteManager.WsPort = newPort;
+                _configService.Config.Port = newPort;
             }
             else
             {
@@ -117,54 +118,19 @@ namespace tterm.Ui
                 AllowsTransparency = true;
             }
 
-            this.LocationChanged += MainWindow_LocationChanged;
             this.Deactivated += MainWindow_Deactivated;
+            this.PreviewMouseDown += MainWindow_PreviewMouseDown;
 
             resizeHint.Visibility = Visibility.Hidden;
 
-            // Настройка таймера для левого попапа
-            leftPopupTimer.Interval = TimeSpan.FromMilliseconds(50); // Задержка перед повторным открытием
-            leftPopupTimer.Tick += (s, e) =>
-            {
-                LeftPopup.IsOpen = true;
-                leftPopupTimer.Stop();
-            };
-
-            // Настройка таймера для правого попапа
-            rightPopupTimer.Interval = TimeSpan.FromMilliseconds(50); // Задержка перед повторным открытием
-            rightPopupTimer.Tick += (s, e) =>
-            {
-                RightPopup.IsOpen = true;
-                rightPopupTimer.Stop();
-            };
-
-            _remoteManager = new RemoteManager(OnMessageReceived, OnConnectionStateChanged);
+            _remoteManager = new RemoteManager(OnMessageReceived, OnConnectionStateChanged, config.Port);
             WsPortTextBox.Text = _remoteManager.WsPort.ToString();
         }
 
-        private void MainWindow_LocationChanged(object sender, EventArgs e)
-        {
-            UpdatePopupPosition(LeftPopup);
-            UpdatePopupPosition(RightPopup);
-        }
         private void MainWindow_Deactivated(object sender, EventArgs e)
         {
             LeftPopup.IsOpen = false;
             RightPopup.IsOpen = false;
-        }
-
-        private void UpdatePopupPosition(Popup popup)
-        {
-            bool wasOpen = popup.IsOpen;
-            if (wasOpen)
-            {
-                popup.IsOpen = false; // Закрытие для обновления позиции
-
-                // Определяем, какой таймер использовать на основе переданного попапа
-                var timer = popup == LeftPopup ? leftPopupTimer : rightPopupTimer;
-                timer.Stop(); // Остановим таймер на случай, если он уже запущен
-                timer.Start(); // Запускаем таймер для отложенного повторного открытия
-            }
         }
 
 
@@ -173,14 +139,29 @@ namespace tterm.Ui
             base.OnInitialized(e);
             _tickInitialised = Environment.TickCount;
 
+
             LeftButton.Click += (sender, args) =>
             {
-                LeftPopup.IsOpen = !LeftPopup.IsOpen; // Переключение состояния Popup
+                if (LeftPopup.IsOpen)
+                {
+                    _configService.Save();
+                    LeftPopup.IsOpen = false;
+                    terminalControl.Focus();
+                }
+                else LeftPopup.IsOpen = true;
             };
 
             RightButton.Click += (sender, args) =>
             {
-                RightPopup.IsOpen = !RightPopup.IsOpen; // Переключение состояния Popup
+                if (RightPopup.IsOpen)
+                {
+                    terminalControl.PromtRegexList = DefaultProfile.PromptRegexps;
+                    Debug.WriteLine($"\nPromtregexps edited:\n{string.Join("\n", DefaultProfile.PromptRegexps.Select(pr => pr.Name + ":\n" + pr.Regex + "\n" + pr.Reply))}");
+                    _configService.Save();
+                    RightPopup.IsOpen = false;
+                    terminalControl.Focus();
+                }
+                else RightPopup.IsOpen = true;
             };
 
             LeftButton.Content = new PackIconMaterial { Kind = PackIconMaterialKind.CloseNetwork };
@@ -251,7 +232,7 @@ namespace tterm.Ui
 
         private void NewSessionTab_Click(object sender, EventArgs e)
         {
-            CreateSession(_defaultProfile);
+            CreateSession(DefaultProfile);
             terminalControl.Focus();
         }
 
@@ -324,11 +305,32 @@ namespace tterm.Ui
 
             Profile profile = config.Profile;
 
-            terminalControl.PromtRegexList = profile.Regexps.Select(s => new Regex(s)).ToList();
-
-            _defaultProfile = ExpandVariables(profile);
-            CreateSession(_defaultProfile);
+            terminalControl.PromtRegexList = profile.PromptRegexps;
+            Debug.WriteLine($"profile.PromptRegexps = {profile.PromptRegexps.Count()}") ;
+            DefaultProfile = ExpandVariables(profile);
+            CreateSession(DefaultProfile);
         }
+
+        private void AddPromptRegexp_Click(object sender, RoutedEventArgs e)
+        {
+            // Добавление нового регулярного выражения в список
+            var newRegexp = new PromptRegexp() { Name = "Новый промпт", Regex = @"Новое выражение", IsOn = true };
+            DefaultProfile.PromptRegexps.Add(newRegexp);
+            ListViewPromptRegexps.Items.Refresh();
+        }
+
+        private void DeletePromptRegexp_Click(object sender, RoutedEventArgs e)
+        {
+            // Удаление выбранного регулярного выражения из списка
+            var button = sender as Button;
+            var regexpToDelete = button.DataContext as PromptRegexp;
+            if (regexpToDelete != null)
+            {
+                DefaultProfile.PromptRegexps.Remove(regexpToDelete);
+                ListViewPromptRegexps.Items.Refresh();
+            }
+        }
+
 
         private void OnConnectionStateChanged(string status, bool isConnected)
         {
@@ -362,7 +364,7 @@ namespace tterm.Ui
 
         protected override void OnForked(ForkData data)
         {
-            Profile profile = _defaultProfile;
+            Profile profile = DefaultProfile;
             profile.CurrentWorkingDirectory = data.CurrentWorkingDirectory;
             profile.EnvironmentVariables = data.Environment;
             CreateSession(profile);
@@ -409,7 +411,7 @@ namespace tterm.Ui
         private async void ProcessCollectedResult(object sender, string result)
         {
             if(AutoSendTab.IsActive) await _remoteManager.TrySendingMessage(result);
-            if (IsNotificationsOn) SendCommandResultNotification("Команда завершила выполнение", result);
+            if (IsNotificationsOn) SendCommandResultNotification("Prompt has been detected", result);
         }
 
         // Метод для отправки уведомления
@@ -418,17 +420,11 @@ namespace tterm.Ui
             // Создание содержимого уведомления
             new ToastContentBuilder()
                 .AddText(title) // Добавление заголовка уведомления
-                .AddText("Результат команды:") // Подзаголовок
+                .AddText("Last output:") // Подзаголовок
                 .AddText(commandResult) // Добавление текста с результатом выполнения команды
-                                        // Добавление текстового поля для ввода новой команды
-                .AddInputTextBox("commandInput", placeHolderContent: "Введите следующую команду...")
-                // Добавление кнопки для отправки команды (пример использования: открытие приложения)
-                .AddButton(new ToastButton()
-                    .SetContent("Открыть приложение")
-                    .AddArgument("action", "openApp")
-                    .SetBackgroundActivation()) // Указание на необходимость активации в фоновом режиме
                 .Show(); // Отображение уведомления
         }
+
 
         private void CloseSession(TerminalSession session)
         {
@@ -473,7 +469,8 @@ namespace tterm.Ui
                 Command = envHelper.ExpandVariables(profile.Command, env),
                 CurrentWorkingDirectory = envHelper.ExpandVariables(profile.CurrentWorkingDirectory, env),
                 Arguments = profile.Arguments?.Select(x => envHelper.ExpandVariables(x, env)).ToArray(),
-                EnvironmentVariables = env
+                EnvironmentVariables = env,
+                PromptRegexps = profile.PromptRegexps
             };
         }
 
@@ -533,6 +530,50 @@ namespace tterm.Ui
                 }
             }
         }
+
+        private void MainWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            // Проверяем, открыт ли хотя бы один попап
+            if (LeftPopup.IsOpen || RightPopup.IsOpen)
+            {
+                // Закрыть попапы, если источник события не является частью содержимого попапа или кнопками тогглами
+                if (!(e.Source is Visual sourceVisual) || !IsPopupChildOrToggleButton(sourceVisual))
+                {
+                    // Смещаем фокус на terminalControl до закрытия попапов, чтобы снять фокус с редактируемых элементов, обновив значения
+                    terminalControl.Focus();
+
+                    terminalControl.PromtRegexList = DefaultProfile.PromptRegexps;
+                    Debug.WriteLine($"\nPromtregexps edited:\n{string.Join("\n", DefaultProfile.PromptRegexps.Select(pr => pr.Name + ":\n" + pr.Regex + "\n" + pr.Reply))}");
+                    _configService.Save();
+
+                    LeftPopup.IsOpen = false;
+                    RightPopup.IsOpen = false;
+
+                }
+            }
+        }
+
+
+        // Метод для проверки, является ли элемент частью содержимого попапа
+        private bool IsPopupChildOrToggleButton(Visual visual)
+        {
+            while (visual != null && !(visual is Popup))
+            {
+                if (visual == LeftPopup.Child || visual == RightPopup.Child)
+                {
+                    return true;
+                }
+                // Проверяем, является ли текущий элемент одной из кнопок, отвечающих за попапы
+                if (visual is Button button && (button == LeftButton || button == RightButton))
+                {
+                    return true;
+                }
+                visual = (Visual)VisualTreeHelper.GetParent(visual);
+            }
+            return false;
+        }
+
+
 
         private void FixTerminalSize()
         {
