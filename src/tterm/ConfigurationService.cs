@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using Newtonsoft.Json;
 
 namespace tterm
 {
-    internal class ConfigurationService
+    public class ConfigurationService
     {
         private const string JsonFileName = "config.json";
 
@@ -15,9 +16,24 @@ namespace tterm
 
         public Config Config { get; private set; } = new Config();
 
+        public Profile DefaultProfile()
+        {
+            var defaultProfile = new Profile();
+            try
+            {
+                defaultProfile = Config.Profiles.Single(pr => pr.ProfileName == Config.DefaultProfileName);
+            }
+            catch (Exception e) {
+                Debug.WriteLine(e);
+                HandleInvalidConfig();
+            }
+            return defaultProfile;
+        }
+
         public ConfigurationService()
         {
             _jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, JsonFileName);
+            Load();
         }
 
         public Config Load()
@@ -34,18 +50,20 @@ namespace tterm
                     }
                     else
                     {
+                        Debug.WriteLine($"Configuration cannot be deserilized properly");
                         // Обработка некорректной конфигурации без перезаписи файла
                         HandleInvalidConfig();
                     }
                 }
                 else
                 {
-                    Config.Profile.PromptRegexps = new List<PromptRegexp> { new PromptRegexp() { Name = "Windows default", Regex = @"[a-zA-Z]:\\[^>]+>" }, new PromptRegexp() { Name = "Yes/No", Regex = @".*\(yes\/No\)" } };
+                    Config.Profiles.Add(new Profile() { ProfileName = "Default profile", PromptRegexps = new List<PromptRegexp> { new PromptRegexp() { Name = "Windows default", Regex = @"[a-zA-Z]:\\[^>]+>" }, new PromptRegexp() { Name = "Yes/No", Regex = @".*\(Yes\/No\)" } } });
                     Save(); // Файл конфигурации не существует, создаем его с дефолтными значениями
                 }
             }
-            catch
+            catch(Exception e)
             {
+                Debug.WriteLine(e);
                 // Обработка ошибок десериализации без перезаписи файла
                 HandleInvalidConfig();
             }

@@ -1,6 +1,7 @@
 ﻿using MahApps.Metro.IconPacks;
 using Microsoft.Toolkit.Uwp.Notifications;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -34,7 +35,6 @@ namespace tterm.Ui
         private bool _ready;
         private Size _consoleSizeDelta;
 
-        private ConfigurationService _configService = new ConfigurationService();
         private readonly ObservableCollection<TabDataItem> _tabs = new ObservableCollection<TabDataItem>();
 
         private TerminalSessionManager _sessionMgr = new TerminalSessionManager();
@@ -42,6 +42,7 @@ namespace tterm.Ui
         private TerminalSize _terminalSize;
 
         private RemoteManager _remoteManager;
+        public ConfigurationService ConfigService { get; set; } = new ConfigurationService();
 
         private TabDataItem AutoSendTab = new TabDataItem() { Title = "Auto-send" };
         private TabDataItem SendOutputTab = new TabDataItem() { Title = "Send output" };
@@ -51,7 +52,27 @@ namespace tterm.Ui
         private TabDataItem ExecuteReceivedTab = new TabDataItem() { Title = "Execute received", IsDisabled = true };
 
         public event PropertyChangedEventHandler PropertyChanged;
-        public Profile DefaultProfile { get; set; }
+
+        private Profile _currentProfile;
+
+
+        // Текущий выбранный профиль
+        public Profile CurrentProfile
+        {
+            get => _currentProfile;
+            set
+            {
+                if (_currentProfile != value)
+                {
+                    _currentProfile = value;
+                    OnPropertyChanged(nameof(CurrentProfile));
+                    Debug.WriteLine($"Changed profile to {_currentProfile.ProfileName}");
+                    terminalControl.PromtRegexList = _currentProfile.PromptRegexps;
+                    CreateSession(_currentProfile);
+                    // Вы можете добавить здесь дополнительную логику при смене профиля
+                }
+            }
+        }
 
         private bool _isNotificationsOn = false;
 
@@ -80,7 +101,7 @@ namespace tterm.Ui
             {
                 // Если введенное значение является числом в допустимом диапазоне, обновите порт
                 _remoteManager.WsPort = newPort;
-                _configService.Config.Port = newPort;
+                ConfigService.Config.Port = newPort;
             }
             else
             {
@@ -112,7 +133,7 @@ namespace tterm.Ui
         {
             InitializeComponent();
 
-            var config = _configService.Load();
+            var config = ConfigService.Load();
             if (config.AllowTransparancy)
             {
                 AllowsTransparency = true;
@@ -134,6 +155,23 @@ namespace tterm.Ui
         }
 
 
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+
+            var config = ConfigService.Config;
+
+            int columns = Math.Max(config.Columns, MinColumns);
+            int rows = Math.Max(config.Rows, MinRows);
+
+            _terminalSize = new TerminalSize(columns, rows);
+            FixWindowSize();
+
+            CurrentProfile = ConfigService.DefaultProfile();
+        }
+
+
         protected override void OnInitialized(EventArgs e)
         {
             base.OnInitialized(e);
@@ -144,7 +182,7 @@ namespace tterm.Ui
             {
                 if (LeftPopup.IsOpen)
                 {
-                    _configService.Save();
+                    ConfigService.Save();
                     LeftPopup.IsOpen = false;
                     terminalControl.Focus();
                 }
@@ -155,9 +193,9 @@ namespace tterm.Ui
             {
                 if (RightPopup.IsOpen)
                 {
-                    terminalControl.PromtRegexList = DefaultProfile.PromptRegexps;
-                    Debug.WriteLine($"\nPromtregexps edited:\n{string.Join("\n", DefaultProfile.PromptRegexps.Select(pr => pr.Name + ":\n" + pr.Regex + "\n" + pr.Reply))}");
-                    _configService.Save();
+                    terminalControl.PromtRegexList = CurrentProfile.PromptRegexps;
+                    Debug.WriteLine($"\nPromtregexps edited:\n{string.Join("\n", CurrentProfile.PromptRegexps.Select(pr => pr.Name + ":\n" + pr.Regex + "\n" + pr.Reply))}");
+                    ConfigService.Save();
                     RightPopup.IsOpen = false;
                     terminalControl.Focus();
                 }
@@ -168,6 +206,7 @@ namespace tterm.Ui
             RightButton.Content = new PackIconMaterial { Kind = PackIconMaterialKind.Settings };
 
             tabBar.DataContext = _tabs;
+            //Debug.WriteLine($"On DataContext binding CurrentProfile is: {CurrentProfile.ProfileName}");d
             DataContext = this;
 
             AutoSendTab.Click += ToggleAutoSend_Click;
@@ -232,7 +271,7 @@ namespace tterm.Ui
 
         private void NewSessionTab_Click(object sender, EventArgs e)
         {
-            CreateSession(DefaultProfile);
+            CreateSession(CurrentProfile);
             terminalControl.Focus();
         }
 
@@ -291,31 +330,11 @@ namespace tterm.Ui
             terminalControl.Focus();
         }
 
-        protected override void OnSourceInitialized(EventArgs e)
-        {
-            base.OnSourceInitialized(e);
-
-            var config = _configService.Config;
-
-            int columns = Math.Max(config.Columns, MinColumns);
-            int rows = Math.Max(config.Rows, MinRows);
-
-            _terminalSize = new TerminalSize(columns, rows);
-            FixWindowSize();
-
-            Profile profile = config.Profile;
-
-            terminalControl.PromtRegexList = profile.PromptRegexps;
-            Debug.WriteLine($"profile.PromptRegexps = {profile.PromptRegexps.Count()}") ;
-            DefaultProfile = ExpandVariables(profile);
-            CreateSession(DefaultProfile);
-        }
-
         private void AddPromptRegexp_Click(object sender, RoutedEventArgs e)
         {
             // Добавление нового регулярного выражения в список
-            var newRegexp = new PromptRegexp() { Name = "Новый промпт", Regex = @"Новое выражение", IsOn = true };
-            DefaultProfile.PromptRegexps.Add(newRegexp);
+            var newRegexp = new PromptRegexp() { Name = "New prompt", Regex = @"New expression", IsOn = true };
+            CurrentProfile.PromptRegexps.Add(newRegexp);
             ListViewPromptRegexps.Items.Refresh();
         }
 
@@ -326,7 +345,7 @@ namespace tterm.Ui
             var regexpToDelete = button.DataContext as PromptRegexp;
             if (regexpToDelete != null)
             {
-                DefaultProfile.PromptRegexps.Remove(regexpToDelete);
+                CurrentProfile.PromptRegexps.Remove(regexpToDelete);
                 ListViewPromptRegexps.Items.Refresh();
             }
         }
@@ -364,7 +383,7 @@ namespace tterm.Ui
 
         protected override void OnForked(ForkData data)
         {
-            Profile profile = DefaultProfile;
+            Profile profile = CurrentProfile;
             profile.CurrentWorkingDirectory = data.CurrentWorkingDirectory;
             profile.EnvironmentVariables = data.Environment;
             CreateSession(profile);
@@ -372,7 +391,8 @@ namespace tterm.Ui
 
         private void CreateSession(Profile profile)
         {
-            var session = _sessionMgr.CreateSession(_terminalSize, profile);
+            var ExpandedProfile = ExpandVariables(profile);
+            var session = _sessionMgr.CreateSession(_terminalSize, ExpandedProfile);
             session.TitleChanged += OnSessionTitleChanged;
             session.Finished += OnSessionFinished;
 
@@ -466,6 +486,7 @@ namespace tterm.Ui
 
             return new Profile()
             {
+                ProfileName = profile.ProfileName,
                 Command = envHelper.ExpandVariables(profile.Command, env),
                 CurrentWorkingDirectory = envHelper.ExpandVariables(profile.CurrentWorkingDirectory, env),
                 Arguments = profile.Arguments?.Select(x => envHelper.ExpandVariables(x, env)).ToArray(),
@@ -542,9 +563,9 @@ namespace tterm.Ui
                     // Смещаем фокус на terminalControl до закрытия попапов, чтобы снять фокус с редактируемых элементов, обновив значения
                     terminalControl.Focus();
 
-                    terminalControl.PromtRegexList = DefaultProfile.PromptRegexps;
-                    Debug.WriteLine($"\nPromtregexps edited:\n{string.Join("\n", DefaultProfile.PromptRegexps.Select(pr => pr.Name + ":\n" + pr.Regex + "\n" + pr.Reply))}");
-                    _configService.Save();
+                    terminalControl.PromtRegexList = CurrentProfile.PromptRegexps;
+                    Debug.WriteLine($"\nPromtregexps edited:\n{string.Join("\n", CurrentProfile.PromptRegexps.Select(pr => pr.Name + ":\n" + pr.Regex + "\n" + pr.Reply))}");
+                    ConfigService.Save();
 
                     LeftPopup.IsOpen = false;
                     RightPopup.IsOpen = false;
@@ -651,9 +672,9 @@ namespace tterm.Ui
                 if (Ready)
                 {
                     // Save configuration
-                    _configService.Config.Columns = size.Columns;
-                    _configService.Config.Rows = size.Rows;
-                    _configService.Save();
+                    ConfigService.Config.Columns = size.Columns;
+                    ConfigService.Config.Rows = size.Rows;
+                    ConfigService.Save();
 
                     // Update hint overlay
                     resizeHint.Hint = size;

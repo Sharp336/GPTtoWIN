@@ -11,16 +11,19 @@ namespace tterm
         public int Columns { get; set; } = 82;
         public int Rows { get; set; } = 17;
         public int Port { get; set; } = 5001;
-        public Profile Profile { get; set; } = new Profile();
+        public string DefaultProfileName { get; set; } = "Default profile";
+        public List<Profile> Profiles { get; set; } = new List<Profile>() ;
+
     }
     public class Profile : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
+        public string ProfileName { get; set; } = "New Profile";
         public string Command { get; set; } = Environment.GetEnvironmentVariable("COMSPEC") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe");
         public string[] Arguments { get; set; } = new[] { "/K", "echo Welcome to the Terminal Emulator && echo ORIGIN_REPOSITORY = %ORIGIN_REPOSITORY%" };
         public string CurrentWorkingDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         public IDictionary<string, string> EnvironmentVariables { get; set; } = new Dictionary<string, string> { { "ORIGIN_REPOSITORY", "https://github.com/Sharp336/GPTtoWIN" } };
-        public List<PromptRegexp> PromptRegexps { get; set; }
+        public List<PromptRegexp> PromptRegexps { get; set; } = new List<PromptRegexp>();
     }
     public class PromptRegexp
     {
