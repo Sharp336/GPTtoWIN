@@ -1,9 +1,9 @@
 
 {
   "manifest_version": 3,
-  "name": "GPToCMD",
+  "name": "GPToWIN",
   "version": "1.0",
-  "description": "Расширение для chrome, работающее в паре с десктопным приложением GPToCMD",
+  "description": "Расширение для chrome, работающее в паре с десктопным приложением GPToWIN",
   "permissions": [
     "activeTab",
     "storage",

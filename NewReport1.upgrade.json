@@ -1,0 +1,351 @@
+{
+  "settings": {
+    "components": {
+      "code": true,
+      "binaries": true
+    },
+    "targetId": "",
+    "targetDisplayName": ".NET 8.0"
+  },
+  "analysisStartTime": "2024-04-12T16:54:58.0386998Z",
+  "analysisEndTime": "2024-04-12T16:55:11.1051036Z",
+  "stats": {
+    "summary": {
+      "projects": 1,
+      "issues": 8,
+      "incidents": 14,
+      "effort": 14
+    },
+    "charts": {
+      "severity": {
+        "Mandatory": 11,
+        "Optional": 1,
+        "Potential": 2,
+        "Information": 0
+      },
+      "category": {
+        "NuGet": 7,
+        "Project": 2,
+        "Api": 5
+      }
+    }
+  },
+  "projects": [
+    {
+      "path": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+      "startingProject": true,
+      "issues": 8,
+      "storyPoints": 14,
+      "ruleInstances": [
+        {
+          "incidentId": "0ca5afe7-16f3-4a34-afdb-fb9c97a936c3",
+          "ruleId": "NuGet.0001",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "Package",
+            "path": "MahApps.Metro, 1.4.3",
+            "snippet": "MahApps.Metro, 1.4.3\n\nRecommendation:\n\nMahApps.Metro, 2.4.10"
+          }
+        },
+        {
+          "incidentId": "0f51541f-e108-4e50-86bd-979aaf01bf71",
+          "ruleId": "NuGet.0001",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "Package",
+            "path": "MahApps.Metro.IconPacks.Material, 1.8.0",
+            "snippet": "MahApps.Metro.IconPacks.Material, 1.8.0\n\nRecommendation:\n\nMahApps.Metro.IconPacks.Material, 4.11.0"
+          }
+        },
+        {
+          "incidentId": "88435101-7394-4656-b831-271be7fb04e8",
+          "ruleId": "NuGet.0002",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "Package",
+            "path": "Newtonsoft.Json, 10.0.2",
+            "snippet": "Newtonsoft.Json, 10.0.2\n\nRecommendation:\n\nNewtonsoft.Json 13.0.3"
+          }
+        },
+        {
+          "incidentId": "9f027889-0246-49aa-8e7f-ff6316f93819",
+          "ruleId": "NuGet.0002",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "Package",
+            "path": "System.Collections.Immutable, 1.3.1",
+            "snippet": "System.Collections.Immutable, 1.3.1\n\nRecommendation:\n\nSystem.Collections.Immutable 8.0.0"
+          }
+        },
+        {
+          "incidentId": "b63b032a-52d4-49b9-ab33-f91f9b1391f9",
+          "ruleId": "NuGet.0003",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "Package",
+            "path": "System.ValueTuple, 4.3.0",
+            "snippet": "System.ValueTuple, 4.3.0\n\nRecommendation:\n\nPackage functionality included with new framework reference"
+          }
+        },
+        {
+          "incidentId": "9f26a21a-a274-4e4e-8879-94b5acd5544e",
+          "ruleId": "NuGet.0001",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "Package",
+            "path": "winpty.NET, 0.4.2",
+            "snippet": "winpty.NET, 0.4.2\n\nRecommendation:\n\nNo supported version found"
+          }
+        },
+        {
+          "incidentId": "e980e2c4-bea8-4cfa-b0af-96cdaf207724",
+          "ruleId": "NuGet.0004",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "Package",
+            "path": "Newtonsoft.Json, 10.0.2",
+            "snippet": "Newtonsoft.Json, 10.0.2",
+            "links": [
+              {
+                "title": "https://github.com/advisories/GHSA-5crp-9r3c-p9vr",
+                "url": "https://github.com/advisories/GHSA-5crp-9r3c-p9vr"
+              }
+            ]
+          }
+        },
+        {
+          "incidentId": "764b4b0c-2444-4e13-9171-08112efdfe6d",
+          "ruleId": "Project.0001",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "File",
+            "path": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj"
+          }
+        },
+        {
+          "incidentId": "702c5d0d-3e50-466b-9ab5-e52180596d3b",
+          "ruleId": "Project.0002",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "File",
+            "path": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+            "snippet": "Current: .NETFramework,Version=v4.8.1\nNew: net8.0-windows"
+          }
+        },
+        {
+          "incidentId": "ccc2190f-0c91-4b75-afc3-40cdc37dd4d8",
+          "ruleId": "Api.0002",
+          "description": "API is available in package Newtonsoft.Json, 13.0.3.",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "File",
+            "path": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\ConfigurationService.cs",
+            "snippet": "JsonConvert.SerializeObject(Config, Formatting.Indented)\n\nAPI signature M:Newtonsoft.Json.JsonConvert.SerializeObject(System.Object,Newtonsoft.Json.Formatting)",
+            "line": 104,
+            "column": 16,
+            "links": [
+              {
+                "title": "API documentation",
+                "url": "https://docs.microsoft.com/en-us/dotnet/api/newtonsoft.json.jsonconvert.serializeobject"
+              }
+            ]
+          }
+        },
+        {
+          "incidentId": "55617309-1e72-4d4a-82bf-221f0a16ddaf",
+          "ruleId": "Api.0002",
+          "description": "API is available in package Newtonsoft.Json, 13.0.3.",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "File",
+            "path": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\App.xaml.cs",
+            "snippet": "JsonConvert.SerializeObject(forkData)\n\nAPI signature M:Newtonsoft.Json.JsonConvert.SerializeObject(System.Object)",
+            "line": 91,
+            "column": 12,
+            "links": [
+              {
+                "title": "API documentation",
+                "url": "https://docs.microsoft.com/en-us/dotnet/api/newtonsoft.json.jsonconvert.serializeobject"
+              }
+            ]
+          }
+        },
+        {
+          "incidentId": "64da6b5b-0309-44e6-8308-fbfd7db726d5",
+          "ruleId": "Api.0002",
+          "description": "API is available in package Newtonsoft.Json, 13.0.3.",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "File",
+            "path": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\ConfigurationService.cs",
+            "snippet": "JsonConvert.DeserializeObject\u003CConfig\u003E(json)\n\nAPI signature M:Newtonsoft.Json.JsonConvert.DeserializeObject\u0060\u00601(System.String)",
+            "line": 45,
+            "column": 20,
+            "links": [
+              {
+                "title": "API documentation",
+                "url": "https://docs.microsoft.com/en-us/dotnet/api/newtonsoft.json.jsonconvert.deserializeobject"
+              }
+            ]
+          }
+        },
+        {
+          "incidentId": "a86079df-2b87-4a1e-8005-43c7fe618a30",
+          "ruleId": "Api.0002",
+          "description": "API is available in package Newtonsoft.Json, 13.0.3.",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "File",
+            "path": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\Ui\\EnhancedWindow.cs",
+            "snippet": "JsonConvert.DeserializeObject\u003CForkData\u003E(forkDataJson)\n\nAPI signature M:Newtonsoft.Json.JsonConvert.DeserializeObject\u0060\u00601(System.String)",
+            "line": 77,
+            "column": 28,
+            "links": [
+              {
+                "title": "API documentation",
+                "url": "https://docs.microsoft.com/en-us/dotnet/api/newtonsoft.json.jsonconvert.deserializeobject"
+              }
+            ]
+          }
+        },
+        {
+          "incidentId": "2e3e7688-d23d-4137-9699-44a872104dd9",
+          "ruleId": "Api.0001",
+          "projectPath": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\WinTermPlus.csproj",
+          "state": "Active",
+          "location": {
+            "kind": "File",
+            "path": "C:\\Users\\Sharp\\source\\repos\\Sharp336\\WinTermPlus\\src\\WinTermPlus\\Ansi\\WinPty.cs",
+            "snippet": "IpcChannel = null\n\nAPI signature T:System.Runtime.Remoting.Channels.Ipc.IpcServerChannel",
+            "line": 30,
+            "column": 69,
+            "links": [
+              {
+                "title": "API documentation",
+                "url": "https://docs.microsoft.com/en-us/dotnet/api/system.runtime.remoting.channels.ipc.ipcserverchannel"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "NuGet.0001": {
+      "id": "NuGet.0001",
+      "description": "NuGet package is incompatible with selected target framework.\n\nPackage needs to be upgraded to a version supporting selected project target framework. If there no new package versions supporting new target framework, different package needs to be used and all code needs to be upgraded to new API.",
+      "label": "NuGet package is incompatible",
+      "severity": "Mandatory",
+      "effort": 1,
+      "links": [
+        {
+          "url": "https://go.microsoft.com/fwlink/?linkid=2262529"
+        }
+      ]
+    },
+    "NuGet.0002": {
+      "id": "NuGet.0002",
+      "description": "NuGet package upgrade is recommended for selected target framework.\n\nStandard .NET packages are recommended to have versions matching version of .NET that project targets.\n\nSome other packages also are known to work better for selected target frameworks.",
+      "label": "NuGet package upgrade is recommended",
+      "severity": "Potential",
+      "effort": 1,
+      "links": [
+        {
+          "url": "https://go.microsoft.com/fwlink/?linkid=2262530"
+        }
+      ]
+    },
+    "NuGet.0003": {
+      "id": "NuGet.0003",
+      "description": "NuGet package functionality is included with framework refrence.\n\nPackage needs to be removed.",
+      "label": "NuGet package functionality is included with framework refrence",
+      "severity": "Mandatory",
+      "effort": 1,
+      "links": [
+        {
+          "url": "https://go.microsoft.com/fwlink/?linkid=2262609"
+        }
+      ]
+    },
+    "NuGet.0004": {
+      "id": "NuGet.0004",
+      "description": "NuGet package contains secutiry vulnerabilities.\n\nPackage needs to be upgraded to a newer version that addresses known secutity vunerabilities.",
+      "label": "NuGet package contains secutiry vulnerability",
+      "severity": "Optional",
+      "effort": 1
+    },
+    "Project.0001": {
+      "id": "Project.0001",
+      "description": "Project file needs to be converted to SDK style. Modern .NET framework projects require a change in the project file format and use SDK corresponding to project flavor and functionality.",
+      "label": "Project file needs to be converted to SDK style",
+      "severity": "Mandatory",
+      "effort": 1,
+      "links": [
+        {
+          "title": "Overview of porting from .NET Framework to .NET",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2265227"
+        },
+        {
+          "title": ".NET project SDKs",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2265226"
+        }
+      ]
+    },
+    "Project.0002": {
+      "id": "Project.0002",
+      "description": "Project\u0027s target framework(s) needs to be changed to the new target framework that you selected for this upgrade.\n\nDuring upgrade target framework will be adjusted to correspinding platform when applicable. In some cases project would result in multiple target frameworks after the upgrade if it was using features that now have their own platforms in moderrn .NET frameworks (windows, iOS, Android etc).",
+      "label": "Project\u0027s target framework(s) needs to be changed",
+      "severity": "Mandatory",
+      "effort": 1,
+      "links": [
+        {
+          "title": "Overview of porting from .NET Framework to .NET",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2265227"
+        },
+        {
+          "title": ".NET project SDKs",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2265226"
+        }
+      ]
+    },
+    "Api.0002": {
+      "id": "Api.0002",
+      "description": "Some API that lived in older versions of .NET frameworks were moved to standalone NuGet packages that could be added to projects explicitly.",
+      "label": "API available in NuGet package",
+      "severity": "Mandatory",
+      "effort": 1,
+      "links": [
+        {
+          "title": "Breaking changes in .NET",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2262679"
+        }
+      ]
+    },
+    "Api.0001": {
+      "id": "Api.0001",
+      "description": "API does not exist in the selected version of .NET. See breaking changes documentation for alternative or replacement functionality.",
+      "label": "API does not exist",
+      "severity": "Mandatory",
+      "effort": 1,
+      "links": [
+        {
+          "title": "Breaking changes in .NET",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2262679"
+        }
+      ]
+    }
+  }
+}
