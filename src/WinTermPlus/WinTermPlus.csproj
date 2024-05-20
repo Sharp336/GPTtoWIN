@@ -71,6 +71,7 @@
     </PackageReference>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Collections.Immutable" Version="8.0.0" />
+    <PackageReference Include="WampSharp" Version="23.8.1" />
     <PackageReference Include="winpty.NET" Version="0.4.2" />
   </ItemGroup>
   <ItemGroup>

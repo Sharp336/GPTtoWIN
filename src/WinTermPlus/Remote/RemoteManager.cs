@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using wtp.Ui;
+using Newtonsoft.Json;
 
 namespace wtp.Remote
 {
@@ -41,6 +42,12 @@ namespace wtp.Remote
                     RestartServer().ConfigureAwait(false);
                 }
             }
+        }
+
+        private class WebSocketMessage
+        {
+            public string Type { get; set; }
+            public string Content { get; set; }
         }
 
         public RemoteManager(Action<string> messageReceived, Action<string, bool> stateHasChanged, int wsPort = 0)
@@ -179,7 +186,6 @@ namespace wtp.Remote
             {
                 while (webSocket.State == WebSocketState.Open)
                 {
-
                     WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
 
                     if (result.MessageType == WebSocketMessageType.Close)
@@ -189,32 +195,66 @@ namespace wtp.Remote
                     }
                     else if (result.MessageType == WebSocketMessageType.Text)
                     {
-                        var clientMessage = Encoding.UTF8.GetString(buffer, 0, result.Count).Trim();
-                        // Проверка на keep-alive сообщение
-                        if (clientMessage != KeepAliveMessage)
+                        var clientMessage = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                        Debug.WriteLine($"Recieved message:\n{clientMessage}");
+                        // Process JSON message
+                        try
                         {
-                            LastRecievedMessage = clientMessage;
-                            MessageReceived(clientMessage);
+                            var messageObject = JsonConvert.DeserializeObject<WebSocketMessage>(clientMessage);
+                            switch (messageObject.Type)
+                            {
+                                case "keepAlive":
+                                    // Process keep-alive message
+                                    break;
+                                default:
+                                    LastRecievedMessage = messageObject.Content;
+                                    MessageReceived(messageObject.Content);
+                                    break;
+                            }
+                        }
+                        catch (JsonException jsonEx)
+                        {
+                            Debug.WriteLine($"JSON parsing error: {jsonEx.Message}");
+                            // Optionally send error message back to client
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                // Log the exception
                 Debug.WriteLine("Exception in HandleWebSocketConnection: " + ex.ToString());
                 ChangeState("Error handling connection", false);
             }
         }
 
-        public async Task TrySendingMessage(string message)
+
+        public async Task TrySendingMessage(string type, string content)
         {
-            Debug.WriteLine($"\nTrying to send:\n{message}");
-            if (_currentWebSocket != null && _currentWebSocket.State == WebSocketState.Open && !string.IsNullOrEmpty(message))
+            if (_currentWebSocket != null && _currentWebSocket.State == WebSocketState.Open)
             {
-                Debug.WriteLine($"Sent message to client");
-                var serverMessageBytes = Encoding.UTF8.GetBytes(message);
-                await _currentWebSocket.SendAsync(new ArraySegment<byte>(serverMessageBytes, 0, serverMessageBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+                var message = new WebSocketMessage
+                {
+                    Type = type,
+                    Content = content
+                };
+                var messageJson = JsonConvert.SerializeObject(message);  // Serialize the message object to JSON
+                var messageBytes = Encoding.UTF8.GetBytes(messageJson);   // Convert the JSON string to bytes
+
+                Debug.WriteLine($"\nSending message to client: {messageJson}");
+
+                try
+                {
+                    await _currentWebSocket.SendAsync(new ArraySegment<byte>(messageBytes, 0, messageBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+                    Debug.WriteLine("Message sent successfully.");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to send message: {ex.Message}");
+                }
+            }
+            else
+            {
+                Debug.WriteLine("WebSocket is not connected or the message is null/empty.");
             }
         }
     }

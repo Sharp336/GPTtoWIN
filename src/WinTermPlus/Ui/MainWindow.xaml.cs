@@ -291,7 +291,7 @@ namespace wtp.Ui
             if (tab != null)
             {
                 var message = terminalControl.CollectLastResult();
-                await _remoteManager.TrySendingMessage(message);
+                await _remoteManager.TrySendingMessage("text", message);
             }
             terminalControl.Focus();
         }
@@ -430,7 +430,7 @@ namespace wtp.Ui
 
         private async void ProcessCollectedResult(object sender, string result)
         {
-            if(AutoSendTab.IsActive) await _remoteManager.TrySendingMessage(result);
+            if(AutoSendTab.IsActive) await _remoteManager.TrySendingMessage("text", result);
             if (IsNotificationsOn) SendCommandResultNotification("Prompt has been detected", result);
         }
 

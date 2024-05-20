@@ -349,17 +349,20 @@ namespace wtp.Ui
                     for (int y = 0; y < lineCount; y++)
                     {
                         _lines[y].Tags = lineTags[y];
-                        if (_isCollectingNewResult && y >= Buffer.CursorY - 1)
+                        string line = lineTags[y].ToString();
+                        if (_isCollectingNewResult && y >= Buffer.CursorY && !line.Contains(_lastCommandPrompt.ToString().Trim()) )
                         {
                             foreach (PromptRegexp pr in PromtRegexList)
                             {
-                                if (new Regex(pr.Regex).Match(lineTags[y].ToString().Trim()).Success)
+                                if (new Regex(pr.Regex).Match(line).Success)
                                 {
-                                    Debug.WriteLine($"{pr.Name} found in UpdateContentForced");
+                                    Debug.WriteLine($"CursorY is {Buffer.CursorY}, {pr.Name} found in line {y}:\n-----\n{line}\n-----");
                                     promptRegexpFound = pr;
                                 }
                             }
                         }
+
+                        Debug.WriteLine($"Processing line {y}\n'{line}\n_isCollectingNewResult is {_isCollectingNewResult}\nBuffer.CursorY is {Buffer.CursorY}\n-----");
                     }
                     _lastUpdateTick = Environment.TickCount;
                     if (promptRegexpFound != null)
@@ -375,6 +378,7 @@ namespace wtp.Ui
                             CollectLastResult();
                             _isCollectingNewResult = false;
                         }
+                        promptRegexpFound = null;
                     }
                 });
             }
@@ -429,7 +433,7 @@ namespace wtp.Ui
                 {
                     bool isEqual = _lastCommandLineTags.Count() > 0 ?
                         _lines[i].Tags.Equals(_lastCommandLineTags) :
-                        lineContent.StartsWith(_lastCommandPrompt);
+                        lineContent.Contains(_lastCommandPrompt);
 
                     if (isEqual)
                     {
@@ -447,7 +451,7 @@ namespace wtp.Ui
                     var lineContent = Buffer.History[i].ToString();
                     _lastCollectedResult.Insert(0, lineContent.TrimEnd() + '\n');
 
-                    if (lineContent.StartsWith(_lastCommandPrompt))
+                    if (lineContent.Contains(_lastCommandPrompt))
                         break;
                 }
             }
@@ -782,6 +786,7 @@ namespace wtp.Ui
                         if (LinePromptMatch.Success)
                         {
                             _lastCommandPrompt = LinePromptMatch.Value;
+                            Debug.WriteLine($"_lastCommandPrompt is set to {_lastCommandPrompt}");
                             break; // Прерываем цикл регулярных выражений при первом же успешном соответствии
                         }
                     }

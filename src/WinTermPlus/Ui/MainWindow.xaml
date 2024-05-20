@@ -8,7 +8,7 @@
                       xmlns:local="clr-namespace:wtp.Ui"
                       xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                       mc:Ignorable="d"
-                      Title="Ted's Terminal"
+                      Title="Extented Terminal"
                       Width="800"
                       Height="350"
                       ResizeMode="CanResizeWithGrip"
