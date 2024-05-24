@@ -1,63 +1,24 @@
 // © 2023–2024 KudoAI & contributors under the MIT license.
 // Source: https://github.com/KudoAI/chatgpt.js
+// User guide: https://chatgptjs.org/userguide
 // Latest minified release: https://cdn.jsdelivr.net/npm/@kudoai/chatgpt.js/chatgpt.min.js
 
 // Init endpoints
 const endpoints = {
-    assets: 'https://raw.githubusercontent.com/KudoAI/chatgpt.js/main',
+    assets: 'https://cdn.jsdelivr.net/gh/KudoAI/chatgpt.js',
     openAI: {
-        session: 'https://chat.openai.com/api/auth/session',
-        chats: 'https://chat.openai.com/backend-api/conversations',
-        chat: 'https://chat.openai.com/backend-api/conversation',
-        share_create: 'https://chat.openai.com/backend-api/share/create',
-        share: 'https://chat.openai.com/backend-api/share',
-        instructions: 'https://chat.openai.com/backend-api/user_system_messages'
+        session: 'https://chatgpt.com/api/auth/session',
+        chats: 'https://chatgpt.com/backend-api/conversations',
+        chat: 'https://chatgpt.com/backend-api/conversation',
+        share_create: 'https://chatgpt.com/backend-api/share/create',
+        share: 'https://chatgpt.com/backend-api/share',
+        instructions: 'https://chatgpt.com/backend-api/user_system_messages'
     }
 };
 
 // Init feedback properties
 localStorage.alertQueue = JSON.stringify([]);
-localStorage.notifyProps = JSON.stringify({
-    queue: { topRight: [], bottomRight: [], bottomLeft: [], topLeft: [] },
-    lastNthAudio: 0 // to prevent immediate repetition of base sound
-});
-
-// Init environment flags & functions
-const isChromeUserScript = navigator.userAgent.includes('Chrome') && typeof unsafeWindow != 'undefined',
-      isFFuserScript = navigator.userAgent.includes('Firefox') && typeof unsafeWindow != 'undefined',
-      isFFtmScript = isFFuserScript && GM_info.scriptHandler == 'Tampermonkey';
-
-// Define messages
-let cjsMessages;
-if (!isChromeUserScript && !(isFFuserScript && !isFFtmScript)) { (async () => {
-    const cjsMsgsLoaded = new Promise(resolve => {
-        const userLanguage = navigator.languages[0] || navigator.language || navigator.browserLanguage ||
-                             navigator.systemLanguage || navigator.userLanguage || '',
-              msgHostDir = endpoints.assets + '/data/_locales/',
-              msgLocaleDir = ( userLanguage ? userLanguage.replace('-', '_') : 'en' ) + '/';
-        let msgHref = msgHostDir + msgLocaleDir + 'messages.json', msgXHRtries = 0;
-        (function loadMsgs() {
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', msgHref); xhr.send();
-            xhr.onload = () => {
-                try { // to return localized messages.json
-                    const messages = new Proxy(JSON.parse(xhr.responseText), {
-                        get(target, prop) { // remove need to ref nested keys
-                            if (typeof target[prop] == 'object' && target[prop] !== null && 'message' in target[prop]) {
-                                return target[prop].message;
-                    }}}); resolve(messages);
-                } catch (err) {
-                    msgXHRtries++; if (msgXHRtries === 3) resolve({}); // try up to 3X (original/region-stripped/EN) only
-                    msgHref = userLanguage.includes('-') && msgXHRtries === 1 ? // if regional lang on 1st try...
-                        msgHref.replace(/([^_]*)_[^/]*(\/.*)/, '$1$2') // ...strip region before retrying
-                            : ( msgHostDir + 'en/messages.json' ); // else use default English messages
-                    loadMsgs();
-                }
-            };
-            xhr.onerror = () => { resolve({}); };
-        })();
-    }); cjsMessages = await cjsMsgsLoaded;
-})();}
+localStorage.notifyProps = JSON.stringify({ queue: { topRight: [], bottomRight: [], bottomLeft: [], topLeft: [] }});
 
 // Define chatgpt.methods
 const chatgpt = { // eslint-disable-line no-redeclare
@@ -186,7 +147,7 @@ const chatgpt = { // eslint-disable-line no-redeclare
 
         // Insert text into elements
         modalTitle.innerText = title || '';
-        modalMessage.innerText = msg || ''; this.renderHTML(modalMessage);
+        modalMessage.innerText = msg || ''; chatgpt.renderHTML(modalMessage);
 
         // Create/append buttons (if provided) to buttons div
         const modalButtons = document.createElement('div');
@@ -236,7 +197,7 @@ const chatgpt = { // eslint-disable-line no-redeclare
 
         // Create close button
         const closeBtn = document.createElement('div');
-        closeBtn.title = cjsMessages?.tooltip_close || 'Close'; closeBtn.classList.add('modal-close-btn');
+        closeBtn.title = 'Close'; closeBtn.classList.add('modal-close-btn');
         const closeSVG = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         closeSVG.setAttribute('height', '10px');
         closeSVG.setAttribute('viewBox', '0 0 14 14');
@@ -422,27 +383,25 @@ const chatgpt = { // eslint-disable-line no-redeclare
         const validMethods = ['api', 'dom'];
         method = (method || 'dom').trim().toLowerCase(); // set to 'dom' by default
         if (method && !validMethods.includes(method))
-            return console.log(`Method argument must be one of: [${ validMethods }]`);
+            return console.error(`Method argument must be one of: [${validMethods}]`);
 
         if (method == 'dom') {
-            try { await chatgpt.getChatData(); } catch { return; } // check if chat history exists
-            chatgpt.menu.open();
-            setTimeout(() => {
-                const menuItems = document.querySelectorAll('a[role="menuitem"]') || [];
-                for (const menuItem of menuItems)
-                    if (/settings/i.test(menuItem.text)) { menuItem.click(); break; }
-                setTimeout(() => { // clear chats
-                    const settingsBtns = document.querySelectorAll('[id*=radix] button');
-                    for (const settingsBtn of settingsBtns)
-                        if (/^clear/i.test(settingsBtn.textContent)) { settingsBtn.click(); break; }
-                    setTimeout(() => { // confirm clear
-                        document.querySelector('[id*=radix] button').click();
-                        setTimeout(() => {
-                            exitMenu();
-                            try { document.querySelector('#prompt-textarea').focus(); } catch (err) {}
-                        }, 10);
-            }, 10); }, 333); }, 10);
-            const exitMenu = () => { document.querySelector('div[id*=radix] button').click(); };
+            const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+            try {
+                chatgpt.menu.open(); await delay(10);
+                const settingsBtn = document.querySelector(
+                    'a[role="menuitem"] svg path[d*="M12.003 10.5a1.5"]').parentNode.parentNode;
+                settingsBtn.click(); await delay(333);
+                const settingsBtns = document.querySelectorAll('[id*=radix] button'),
+                      deleteBtn = settingsBtns[settingsBtns.length - 1];
+                deleteBtn.click(); await delay(10);
+                document.querySelector('button[class*="danger"').click(); // confirm clear
+                return console.info('Chats successfully cleared.');
+            } catch (err) {
+                console.error(err.message);
+                if (arguments.length == 0) {
+                    console.info('Using backend API method instead.'); chatgpt.clearChats('api'); }
+            }
 
         } else { // API method
         // NOTE: DOM is not updated to reflect new empty chat list (until session refresh)
@@ -458,7 +417,7 @@ const chatgpt = { // eslint-disable-line no-redeclare
                         console.info('Chats successfully cleared'); resolve();
                     };
                     xhr.send(JSON.stringify({ is_visible: false }));
-                }).catch(reject);
+                }).catch(err => reject(new Error(err.message)));
             });
         }
     },
@@ -537,6 +496,8 @@ const chatgpt = { // eslint-disable-line no-redeclare
             return chatgpt.code.extract(await chatgpt.getChatData('active', 'msg', 'chatgpt', 'latest'));
         }
     },
+
+    continue: function() { chatgpt.response.continue(); },
 
     detectLanguage: async function(text) {
         if (!text) return console.error('Text argument not supplied. Pass some text!');
@@ -835,7 +796,7 @@ const chatgpt = { // eslint-disable-line no-redeclare
 
                         // Fill [userMessages]
                         for (const key in data)
-                            if ('message' in data[key] && data[key].message.author.role == 'user')
+                            if (data[key].message != null && data[key].message.author.role == 'user')
                                 userMessages.push({ id: data[key].id, msg: data[key].message });
                         userMessages.sort((a, b) => a.msg.create_time - b.msg.create_time); // sort in chronological order
 
@@ -847,7 +808,7 @@ const chatgpt = { // eslint-disable-line no-redeclare
                         for (const userMessage of userMessages) {
                             let sub = [];
                             for (const key in data) {
-                                if ('message' in data[key] && data[key].message.author.role == 'assistant' && data[key].parent == userMessage.id) {
+                                if (data[key].message != null && data[key].message.author.role == 'assistant' && data[key].parent == userMessage.id) {
                                     sub.push(data[key].message);
                                 }
                             }
@@ -887,35 +848,38 @@ const chatgpt = { // eslint-disable-line no-redeclare
         });});};
 
         // Return chat data
-        return new Promise(resolve => { chatgpt.getAccessToken().then(token => {
-            if (!detailsToGet.includes('msg')) getChatDetails(token, detailsToGet).then(data => {
-                return resolve(data); // get just the chat details
-            });
-            else getChatMsgs(token).then(messages => { return resolve(messages); }); // otherwise get specific msg's
-        });});
+        return new Promise(resolve => chatgpt.getAccessToken().then(token => {
+            return resolve(detailsToGet.includes('msg') ? getChatMsgs(token)
+                         : getChatDetails(token, detailsToGet));
+        }));
     },
 
     getChatInput: function() { return chatgpt.getChatBox().value; },
 
     getContinueGeneratingButton: function() {
-        for (const svg of document.querySelectorAll('form button svg')) {
-            if (svg.querySelector('polygon[points*="11 19 2 12 11 5 11 19"]'))
-                return svg.parentNode.parentNode;
+        for (const formBtnSVG of document.querySelectorAll('form button svg')) {
+            if (formBtnSVG.querySelector('path[d*="M4.472 2.5a1"]'))
+                return formBtnSVG.parentNode.parentNode;
     }},
 
+    getFooterDiv: function() { return document.querySelector('main form').parentNode.parentNode.nextElementSibling; },
+    getHeaderDiv: function() { return document.querySelector('main .sticky'); },
     getLastPrompt: function() { return chatgpt.getChatData('active', 'msg', 'user', 'latest'); },
     getLastResponse: function() { return chatgpt.getChatData('active', 'msg', 'chatgpt', 'latest'); },
 
-    getNewChatLink: function() {
-        for (const navLink of document.querySelectorAll('nav a')) {
-            if (/(new|clear) chat/i.test(navLink.text)) {
-                return navLink;
-    }}},
+    getNewChatButton: function() {
+        for (const navBtnSVG of document.querySelectorAll('nav button svg'))
+            if (navBtnSVG.querySelector('path[d*="M15.673 3.913a3.121"], ' // pencil-on-pad icon
+                                      + 'path[d*="M3.07 10.876C3.623"]'))  // refresh icon if temp chat
+                return navBtnSVG.parentNode;
+    },
+
+    getNewChatLink: function() { return document.querySelector('nav a[href="/"]'); },
 
     getRegenerateButton: function() {   
         for (const mainSVG of document.querySelectorAll('main svg')) {
-            if (mainSVG.querySelector('path[d*="M4.5 2.5C5.05228"]')) // regen icon found
-                return mainSVG.parentNode.parentNode;
+            if (mainSVG.querySelector('path[d*="M3.07 10.876C3.623"]')) // regen icon found
+                return mainSVG.parentNode;
     }},
 
     getResponse: function() {
@@ -924,18 +888,21 @@ const chatgpt = { // eslint-disable-line no-redeclare
     // responseToGet = index of response to get (defaults to latest if '' unpassed)
     // regenResponseToGet = index of regenerated response to get (defaults to latest if '' unpassed)
 
-        if (window.location.href.startsWith('https://chat.openai.com/c/'))
-            return chatgpt.getResponseFromDOM.apply(null, arguments);
-        else return chatgpt.getResponseFromAPI.apply(null, arguments);
+        return chatgpt.response.get(...arguments);
     },
 
     getResponseFromAPI: function(chatToGet, responseToGet) { return chatgpt.response.getFromAPI(chatToGet, responseToGet); },
     getResponseFromDOM: function(pos) { return chatgpt.response.getFromDOM(pos); },
-    getSendButton: function() { return document.querySelector('form button[class*="bottom"]'); },
+    getScrollToBottomButton: function() { return document.querySelector('button[class*="cursor"][class*="bottom"]'); },
+
+    getSendButton: function() {
+        return document.querySelector('[data-testid="send-button"]') // pre-GPT-4o
+            || document.querySelector('path[d*="M15.192 8.906a1.143"]')?.parentNode.parentNode; // post-GPT-4o
+    },
 
     getStopGeneratingButton: function() {
         for (const svg of document.querySelectorAll('form button svg')) {
-            if (svg.querySelector('path[d*="2 0 0 1 2"]'))
+            if (svg.querySelector('path[d*="2 0 0 1 2"], rect'))
                 return svg.parentNode;
     }},
 
@@ -943,32 +910,17 @@ const chatgpt = { // eslint-disable-line no-redeclare
         return navigator.languages[0] || navigator.language || navigator.browserLanguage ||
             navigator.systemLanguage || navigator.userLanguage || ''; },
 
+    hideFooter: function() { chatgpt.getFooterDiv().style.display = 'none'; },
+    hideHeader: function() { chatgpt.getHeaderDiv().style.display = 'none'; },
+
     history: {
-        activate: function() { this.isOff() ? this.toggle() : console.info('Chat history is already enabled!'); },
-        deactivate: function() { this.isOn() ? this.toggle() : console.info('Chat history is already disabled!'); },
-
-        isOn: function() {
-            const navDivs = document.querySelectorAll('nav div'),
-                  offDiv = [...navDivs].find(div => div.textContent.includes('Chat History is off')) || {};
-            return offDiv.classList.toString().includes('invisible');
-        },
-
-        isOff: function() { return !this.isOn(); },
-
         isLoaded: function() {
             return new Promise(resolve => {
-                const checkChatHistory = () => {
+                (function checkChatHistory() {
                     if (document.querySelector('nav')) resolve(true);
-                    else setTimeout(checkChatHistory, 100);
-                };
-                checkChatHistory();
-        });},
-
-        toggle: function() {
-            for (const navBtn of document.querySelectorAll('nav button')) {
-                if (/chat history/i.test(navBtn.textContent)) {
-                    navBtn.click(); return;
-        }}}
+                    else setTimeout(checkChatHistory, 200);
+                })();
+        });}
     },
 
     instructions: {
@@ -1103,17 +1055,19 @@ const chatgpt = { // eslint-disable-line no-redeclare
 
     isIdle: function() {
         return new Promise(resolve => {
-            const intervalId = setInterval(() => {
-                if (chatgpt.getRegenerateButton()) {
-                    clearInterval(intervalId); resolve(true);
-    }}, 100);});},
+            (function checkIsIdle() {
+                if (chatgpt.getRegenerateButton()) resolve(true);
+                else setTimeout(checkIsIdle, 200);
+            })();
+    });},
 
     isLoaded: function() {
         return new Promise(resolve => {
-            const intervalId = setInterval(() => {
-                if (document.querySelector('nav button[id*="menu"]')) {
-                    clearInterval(intervalId); setTimeout(() => { resolve(true); }, 500);
-    }}, 100);});},
+            (function checkIsLoaded() {
+                if (chatgpt.getNewChatButton()) resolve(true);
+                else setTimeout(checkIsLoaded, 200);
+            })();
+    });},
 
     isLightMode: function() { return document.documentElement.classList.toString().includes('light'); },
     isMobileDevice: function() { return chatgpt.browser.isMobile(); },
@@ -1209,17 +1163,13 @@ const chatgpt = { // eslint-disable-line no-redeclare
         },
 
         close: function() {
-            const menuBtn = document.querySelector('nav [id*="menu-button"][aria-expanded="true"]');
-            if (menuBtn)
-                try { menuBtn.click(); } catch (err) { console.error('Error while closing the menu'); throw new Error(err); }
-            else { console.error('Menu already hidden!'); throw new Error(); }
+            try { document.querySelector('nav [id*="menu-button"][aria-expanded="true"]').click(); }
+            catch (err) { console.error(err.message); }
         },
 
         open: function() {
-            const menuBtn = document.querySelector('nav [id*="menu-button"][aria-expanded="false"]');
-            if (menuBtn)
-                try { menuBtn.click(); } catch (err) { console.error('Error while closing the menu'); throw new Error(err); }
-            else { console.error('Menu already hidden!'); throw new Error(); }
+            try { document.querySelector('nav [id*="menu-button"][aria-expanded="false"]').click(); }
+            catch (err) { console.error(err.message); }
         }
     },
 
@@ -1239,7 +1189,7 @@ const chatgpt = { // eslint-disable-line no-redeclare
 
         // Create/append close button
         const closeBtn = document.createElement('div');
-        closeBtn.title = cjsMessages?.tooltip_dismiss || 'Dismiss'; closeBtn.classList.add('notif-close-btn');
+        closeBtn.title = 'Dismiss'; closeBtn.classList.add('notif-close-btn');
         const closeSVG = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         closeSVG.setAttribute('height', '8px');
         closeSVG.setAttribute('viewBox', '0 0 14 14');
@@ -1318,28 +1268,10 @@ const chatgpt = { // eslint-disable-line no-redeclare
         const hideDelay = fadeDuration > notifDuration ? 0 // don't delay if fade exceeds notification duration
                         : notifDuration - fadeDuration; // otherwise delay for difference
 
-        // Init/schedule audio feedback
-        let dismissAudio, dismissAudioTID; // be accessible to `dismissNotif()`
-        if (isFFtmScript) {
-            // Init base audio index
-            let nthAudio; do nthAudio = Math.floor(Math.random() * 3) + 1; // randomize  between 1-3...
-            while (nthAudio === notifyProps.lastNthAudio); // ...until distinct from prev index (for variety)
-            notifyProps.lastNthAudio = nthAudio; localStorage.notifyProps = JSON.stringify(notifyProps);
-
-            // Build audio element + src URL
-            dismissAudio = new Audio();
-            dismissAudio.src = endpoints.assets + '/media/audio/notifications/bubble-pop/'
-                             + `${ nthAudio }-${ notificationDiv.isRight ? 'right' : 'left' }.mp3`;
-
-            // Schedule playback
-            dismissAudioTID = setTimeout(() => dismissAudio.play().catch(() => {}), hideDelay * 1000);
-        }
-
         // Add notification dismissal to timeout schedule + button clicks
         const dismissNotif = () => {
             notificationDiv.style.animation = `notif-zoom-fade-out ${ fadeDuration }s ease-out`;
-            if (isFFtmScript) dismissAudio?.play().catch(() => {});
-            clearTimeout(dismissFuncTID); clearTimeout(dismissAudioTID);
+            clearTimeout(dismissFuncTID);
         };
         const dismissFuncTID = setTimeout(dismissNotif, hideDelay * 1000); // maintain visibility for `hideDelay` secs, then dismiss     
         closeSVG.addEventListener('click', dismissNotif, { once: true }); // add to close button clicks
@@ -1424,16 +1356,11 @@ const chatgpt = { // eslint-disable-line no-redeclare
     randomFloat: function() {
     // * Generates a random, cryptographically secure value between 0 (inclusive) & 1 (exclusive)
         const crypto = window.crypto || window.msCrypto;
-        return crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF;
+        return crypto?.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF || Math.random();
     },
 
     refactor: function() { chatgpt.code.refactor(); },
-
-    regenerate: function() {
-        for (const formButton of document.querySelectorAll('form button')) {
-            if (formButton.textContent.toLowerCase().includes('regenerate')) {
-                formButton.click(); return;
-    }}},
+    regenerate: function() { chatgpt.response.regenerate(); },
 
     renderHTML: function(node) {
         const reTags = /<([a-z\d]+)\b([^>]*)>([\s\S]*?)<\/\1>/g,
@@ -1441,9 +1368,9 @@ const chatgpt = { // eslint-disable-line no-redeclare
               nodeContent = node.childNodes;
 
         // Preserve consecutive spaces + line breaks
-        if (!this.renderHTML.preWrapSet) {
-            node.style.whiteSpace = 'pre-wrap'; this.renderHTML.preWrapSet = true;
-            setTimeout(() => { this.renderHTML.preWrapSet = false; }, 100);
+        if (!chatgpt.renderHTML.preWrapSet) {
+            node.style.whiteSpace = 'pre-wrap'; chatgpt.renderHTML.preWrapSet = true;
+            setTimeout(() => { chatgpt.renderHTML.preWrapSet = false; }, 100);
         }
 
         // Process child nodes
@@ -1467,7 +1394,7 @@ const chatgpt = { // eslint-disable-line no-redeclare
                         tagNode.setAttribute(name, value);
                     });
 
-                    const renderedNode = this.renderHTML(tagNode); // render child elements of newly created node
+                    const renderedNode = chatgpt.renderHTML(tagNode); // render child elements of newly created node
 
                     // Insert newly rendered node
                     const beforeTextNode = document.createTextNode(text.substring(0, elem.index)),
@@ -1480,7 +1407,7 @@ const chatgpt = { // eslint-disable-line no-redeclare
                 }
 
             // Process element nodes recursively
-            } else if (childNode.nodeType == Node.ELEMENT_NODE) this.renderHTML(childNode);
+            } else if (childNode.nodeType == Node.ELEMENT_NODE) chatgpt.renderHTML(childNode);
         }
 
         return node; // if assignment used
@@ -1489,13 +1416,15 @@ const chatgpt = { // eslint-disable-line no-redeclare
     resend: async function() { chatgpt.send(await chatgpt.getChatData('latest', 'msg', 'user', 'latest')); },
 
     response: {
+        continue: function() { try { chatgpt.getContinueBtn().click(); } catch (err) { console.error(err.message); }},
+
         get: function() {
             // * Returns response via DOM by index arg if OpenAI chat page is active, otherwise uses API w/ following args:        
             // chatToGet = index|title|id of chat to get (defaults to latest if '' unpassed)
             // responseToGet = index of response to get (defaults to latest if '' unpassed)
             // regenResponseToGet = index of regenerated response to get (defaults to latest if '' unpassed)
 
-                if (window.location.href.startsWith('https://chat.openai.com/c/'))
+                if (window.location.href.startsWith('https://chatgpt.com/c/'))
                     return this.getFromDOM.apply(null, arguments);
                 else return this.getFromAPI.apply(null, arguments);
         },
@@ -1540,46 +1469,32 @@ const chatgpt = { // eslint-disable-line no-redeclare
                     );
                     response = responseDivs[nthOfResponse - 1].textContent;
                 }
-                response = response.replace(/^ChatGPTChatGPT/, ''); // strip sender name
+                response = response.replace(/^ChatGPT(?:ChatGPT)?/, ''); // strip sender name
             }
             return response;
         },
 
         getLast: function() { return chatgpt.getChatData('active', 'msg', 'chatgpt', 'latest'); },
-
-        regenerate: function() {
-            for (const formButton of document.querySelectorAll('form button')) {
-                if (formButton.textContent.toLowerCase().includes('regenerate')) {
-                    formButton.click(); return;
-        }}},
-
-        stopGenerating: function() {
-            for (const svg of document.querySelectorAll('form button svg')) {
-                if (svg.querySelector('path[d*="2 0 0 1 2"]')) {
-                    svg.parentNode.click(); return;
-        }}}
+        regenerate: function() { try { chatgpt.getRegenerateBtn().click(); } catch (err) { console.error(err.message); }},
+        stopGenerating: function() { try { chatgpt.getStopBtn().click(); } catch (err) { console.error(err.message); }}
     },
 
     reviewCode: function() { chatgpt.code.review(); },
-
-    scrollToBottom: function() {
-        try { document.querySelector('button[class*="cursor"][class*="bottom"]').click(); }
-        catch (err) { console.error('', err); }
-    },
+    scrollToBottom: function() { try { chatgpt.getScrollBtn().click(); } catch (err) { console.error(err.message); }},
 
     send: function(msg, method='') {
         for (let i = 0; i < arguments.length; i++) if (typeof arguments[i] !== 'string')
             return console.error(`Argument ${ i + 1 } must be a string!`);
         const textArea = document.querySelector('form textarea'),
-              sendButton = document.querySelector('form button[class*="bottom"]');
+              sendBtn = chatgpt.getSendButton();
         textArea.value = msg;
         textArea.dispatchEvent(new Event('input', { bubbles: true })); // enable send button
-        const delaySend = setInterval(() => {
-            if (!sendButton?.hasAttribute('disabled')) { // send msg
-                method.toLowerCase() == 'click' || chatgpt.browser.isMobile() ? sendButton.click()
+
+        setTimeout(function delaySend() {
+            if (!sendBtn?.hasAttribute('disabled')) { // send msg
+                method.toLowerCase() == 'click' || chatgpt.browser.isMobile() ? sendBtn.click()
                     : textArea.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 13, bubbles: true }));
-                clearInterval(delaySend);
-            }
+            } else setTimeout(delaySend, 25);
         }, 25);
     },
 
@@ -1712,14 +1627,13 @@ const chatgpt = { // eslint-disable-line no-redeclare
         });});});});});
     },
 
+    showFooter: function() { chatgpt.getFooterDiv().style.display = 'revert'; },
+    showHeader: function() { chatgpt.getHeaderDiv().style.display = 'flex'; },
+
     sidebar: {
         elements: [], observer: {},
 
         activateObserver: function() {
-            const chatHistoryNav = document.querySelector('nav'),
-                firstButton = chatHistoryNav.querySelector('a');
-            if (chatgpt.history.isOff()) // Hide enable history spam div
-                try { firstButton.parentNode.nextElementSibling.style.display = 'none'; } catch (err) {}
 
             // Stop the previous observer to preserve resources
             if (this.observer instanceof MutationObserver)
@@ -1830,29 +1744,40 @@ const chatgpt = { // eslint-disable-line no-redeclare
         show: function() { this.isOff() ? this.toggle() : console.info('Sidebar already shown!'); },
         isOff: function() { return !this.isOn(); },
         isOn: function() {
+            const sidebar = document.querySelector('#__next > div > div');
             return chatgpt.browser.isMobile() ?
                 document.documentElement.style.overflow == 'hidden'
-              : document.querySelector('#__next > div > div').style.visibility != 'hidden';
+              : sidebar.style.visibility != 'hidden' && sidebar.style.width != '0px';
         },
 
         toggle: function() {
             const isMobileDevice = chatgpt.browser.isMobile(),
-                  navBtnSelector = isMobileDevice ? '#__next button' : 'main button' ,
+                  isGPT4oUI = !!document.documentElement.className.includes(' '),
+                  navBtnSelector = isMobileDevice ? '#__next button' : isGPT4oUI ? 'nav button' : 'main button',
                   isToggleBtn = isMobileDevice ? () => true // since 1st one is toggle
-                              : btn => Array.from(btn.querySelectorAll('*'))
-                                            .some(child => child.style.transform.includes('translateY'));
+                              : isGPT4oUI ? btn => btn.querySelectorAll('svg path[d*="M8.857 3h6.286c1.084"]').length > 0
+                              : /* post-GPT-4o desktop */ btn => [...btn.querySelectorAll('*')]
+                                    .some(child => child.style.transform.includes('translateY'));
             for (const btn of document.querySelectorAll(navBtnSelector))
                 if (isToggleBtn(btn)) { btn.click(); return; }
+        },
+
+        isLoaded: async function() {
+            await chatgpt.isLoaded();
+            return Promise.race([
+                new Promise(resolve => {
+                    (function checkNewChatLink() {
+                        if (chatgpt.getNewChatLink()) resolve(true);
+                        else setTimeout(checkNewChatLink, 200);
+                    })();
+                }),
+                new Promise(resolve => setTimeout(resolve, 5000)) // since New Chat link not always present
+            ]);
         }
     },
 
-    startNewChat: function() {
-        for (const navLink of document.querySelectorAll('nav a')) {
-            if (/(new|clear) chat/i.test(navLink.text)) {
-                navLink.click(); return;
-    }}},
-
-    stop: function() { this.response.stopGenerating(); },
+    startNewChat: function() { try { chatgpt.getNewChatBtn().click(); } catch (err) { console.error(err.message); }},
+    stop: function() { chatgpt.response.stopGenerating(); },
 
     suggest: async function(ideaType, details) {
         if (!ideaType) return console.error('ideaType (1st argument) not supplied'
@@ -1952,17 +1877,24 @@ for (const buttonAction of buttonActions) {
 }
 
 // Create alias functions
-const functionAliases = [
+const funcAliases = [
     ['actAs', 'actas', 'act', 'become', 'persona', 'premadePrompt', 'preMadePrompt', 'prePrompt', 'preprompt', 'roleplay', 'rolePlay', 'rp'],
     ['activateAutoRefresh', 'activateAutoRefresher', 'activateRefresher', 'activateSessionRefresher',
         'autoRefresh', 'autoRefresher', 'autoRefreshSession', 'refresher', 'sessionRefresher'],
+    ['continue', 'continueChat', 'continueGenerating', 'continueResponse'],
     ['deactivateAutoRefresh', 'deactivateAutoRefresher', 'deactivateRefresher', 'deactivateSessionRefresher'],
     ['detectLanguage', 'getLanguage'],
     ['executeCode', 'codeExecute'],
     ['exportChat', 'chatExport', 'export'],
+    ['getFooterDiv', 'getFooter'],
+    ['getHeaderDiv', 'getHeader'],
     ['getLastPrompt', 'getLastQuery', 'getMyLastMsg', 'getMyLastQuery'],
+    ['getContinueGeneratingButton', 'getContinueButton'],
+    ['getScrollToBottomButton', 'getScrollButton'],
+    ['getStopGeneratingButton', 'getStopButton'],
     ['getTextarea', 'getTextArea', 'getChatbox', 'getChatBox'],
-    ['isFullScreen', 'isFullscreen'],
+    ['isFullScreen', 'isFullscreen', 'isfullscreen'],
+    ['isLoaded', 'isloaded'],
     ['logOut', 'logout', 'logOff', 'logoff', 'signOut', 'signout', 'signOff', 'signoff'],
     ['minify', 'codeMinify', 'minifyCode'],
     ['new', 'newChat', 'startNewChat'],
@@ -1976,7 +1908,8 @@ const functionAliases = [
     ['send', 'sendChat', 'sendMsg'],
     ['sendInNewChat', 'sendNewChat'],
     ['sentiment', 'analyzeSentiment', 'sentimentAnalysis'],
-    ['stop', 'stopGenerating'],
+    ['startNewChat', 'new', 'newChat'],
+    ['stop', 'stopChat', 'stopGenerating', 'stopResponse'],
     ['suggest', 'suggestion', 'recommend'],
     ['toggleAutoRefresh', 'toggleAutoRefresher', 'toggleRefresher', 'toggleSessionRefresher'],
     ['toggleScheme', 'toggleMode'],
@@ -1989,7 +1922,11 @@ const synonyms = [
     ['activate', 'turnOn'],
     ['analyze', 'check', 'evaluate', 'review'],
     ['ask', 'send', 'submit'],
+    ['button', 'btn'],
+    ['continue', 'resume'],
+    ['chats', 'history'],
     ['chat', 'conversation', 'convo'],
+    ['clear', 'delete', 'remove'],
     ['data', 'details'],
     ['deactivate', 'deActivate', 'turnOff'],
     ['execute', 'interpret', 'interpreter', 'run'],
@@ -2009,7 +1946,7 @@ const camelCaser = (words) => {
 for (const prop in chatgpt) {
 
     // Create new function for each alias
-    for (const subAliases of functionAliases) {
+    for (const subAliases of funcAliases) {
         if (subAliases.includes(prop)) {
             if (subAliases.some(element => element.includes('.'))) {
                 const nestedFunction = subAliases.find(element => element.includes('.')).split('.')[1];
@@ -2054,7 +1991,3 @@ console.info = (msg) => {
 // Export chatgpt object
 try { window.chatgpt = chatgpt; } catch (err) {} // for Greasemonkey
 try { module.exports = chatgpt; } catch (err) {} // for CommonJS
-
-
-export { chatgpt }
-

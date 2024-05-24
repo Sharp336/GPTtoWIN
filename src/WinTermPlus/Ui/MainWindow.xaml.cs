@@ -1,4 +1,5 @@
-﻿using MahApps.Metro.IconPacks;
+﻿using ControlzEx.Standard;
+using MahApps.Metro.IconPacks;
 using Microsoft.Toolkit.Uwp.Notifications;
 using System;
 using System.Collections.Generic;
@@ -219,6 +220,10 @@ namespace wtp.Ui
 
         private void AddTabs()
         {
+             TabDataItem TestTab = new TabDataItem() { Title = "Test" };
+            TestTab.Click += Test_Click;
+            _tabs.Add(TestTab);
+
             _tabs.Add(AutoSendTab);
             _tabs.Add(SendOutputTab);
             _tabs.Add(AutoTypeTab);
@@ -241,11 +246,12 @@ namespace wtp.Ui
 
         private void Test_Click(object sender, EventArgs e)
         {
-            var beba = new ToastContentBuilder()
-                .AddArgument("action", "viewConversation")
-                .AddArgument("conversationId", 9813)
-                .AddText($"WS port is: {_remoteManager.WsPort}")
-                .AddText("Check this out, The Enchantments in Washington!");
+            Dispatcher.InvokeAsync(async () =>
+            {
+                var result = await _remoteManager.GetChatDataFromClient();
+                Debug.WriteLine(result);
+            });
+            
 
             terminalControl.Focus();
         }
@@ -319,14 +325,14 @@ namespace wtp.Ui
         private void TypeRecievedManuallyTab_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
-            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_remoteManager.LastRecieved, false);
+            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_remoteManager.LastRecievedMessage, false);
             terminalControl.Focus();
         }
 
         private void ExecuteManuallyTab_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
-            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_remoteManager.LastRecieved, true);
+            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_remoteManager.LastRecievedMessage, true);
             terminalControl.Focus();
         }
 

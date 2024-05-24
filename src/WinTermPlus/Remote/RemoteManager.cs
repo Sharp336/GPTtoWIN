@@ -6,13 +6,17 @@ using Microsoft.Extensions.Hosting;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Threading;
 
 namespace wtp.Remote
 {
-    internal class RemoteManager
+    public class RemoteManager
     {
         private IHost _host;
+        private Dispatcher _dispatcher;
+        public string _clientConnectionId;
         private string ServerAddress => $"http://localhost:{_wsPort}";
 
         private int _wsPort = 5005;
@@ -34,7 +38,7 @@ namespace wtp.Remote
 
         public string State { get; private set; } = "Initialized";
         public bool IsConnected { get; private set; } = false;
-        public string LastRecieved { get; private set; } = "";
+        public string LastRecievedMessage { get; private set; } = "";
 
         public RemoteManager(Action<string> messageReceived, Action<string, bool> stateHasChanged, int port)
         {
@@ -42,6 +46,7 @@ namespace wtp.Remote
             MessageReceived = messageReceived;
             StateHasChanged = stateHasChanged;
             WsPort = port;
+            _dispatcher = Dispatcher.CurrentDispatcher;
 
             StartSignalRServer().ConfigureAwait(false);
         }
@@ -54,7 +59,7 @@ namespace wtp.Remote
             await StartSignalRServer();
         }
 
-        private void ChangeState(string status, bool isConnected)
+        public void ChangeState(string status, bool isConnected)
         {
             State = status;
             IsConnected = isConnected;
@@ -113,6 +118,7 @@ namespace wtp.Remote
                                       });
                                   });
                                   services.AddSignalR();
+                                  services.AddSingleton<RemoteManager>(this); // Register RemoteManager as a singleton
                               })
                               .Configure(app =>
                               {
@@ -149,13 +155,55 @@ namespace wtp.Remote
                 Console.WriteLine("HubContext is not available.");
             }
         }
+
+        public void ProcessMessage(string msg)
+        {
+            Debug.WriteLine($"Processing message:\n{msg}");
+            _dispatcher.Invoke(() =>
+            {
+                if (!string.IsNullOrWhiteSpace(msg)) MessageReceived?.Invoke(msg);
+            });
+        }
+
+        public async Task<string> GetChatDataFromClient()
+        {
+            Debug.WriteLine("GetChatDataFromClient called");
+            var hubContext = _host.Services.GetService<IHubContext<ChatHub>>();
+            if (hubContext != null && !string.IsNullOrEmpty(_clientConnectionId))
+            {
+                try
+                {
+                    // Invoke the client method and return the result
+                    var result = await hubContext.Clients.Client(_clientConnectionId).InvokeAsync<string>("getChatData", CancellationToken.None);
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to call client method: {ex.Message}");
+                    return null;
+                }
+            }
+            else
+            {
+                Console.WriteLine("HubContext or client connection ID is not available.");
+                return null;
+            }
+        }
     }
 
     public class ChatHub : Hub
     {
+        private readonly RemoteManager _remoteManager;
+
+        public ChatHub(RemoteManager remoteManager)
+        {
+            _remoteManager = remoteManager;
+        }
+
         public async Task SendMessage(string user, string message)
         {
             await Clients.All.SendAsync("ReceiveMessage", user, message);
+            _remoteManager.ProcessMessage(message);
         }
 
         public async Task<string> Echo(string message)
@@ -167,6 +215,34 @@ namespace wtp.Remote
         {
             await Clients.Caller.SendAsync("ClientMethod", message);
             return await Task.FromResult($"Processed message: {message}");
+        }
+
+        // Новый метод для вызова getChatData на клиенте
+        public async Task<string> WaitForMessage()
+        {
+            var message = await _remoteManager.GetChatDataFromClient();
+            return message;
+        }
+
+        // Implement the KeepAlive method
+        public async Task KeepAlive(string message)
+        {
+            await Task.CompletedTask; // Just acknowledging the keep-alive message
+        }
+
+        public override async Task OnConnectedAsync()
+        {
+            var connectionId = Context.ConnectionId;
+            _remoteManager._clientConnectionId = connectionId;
+            _remoteManager.ChangeState("Connected", true);
+            await base.OnConnectedAsync();
+        }
+
+        public override async Task OnDisconnectedAsync(Exception exception)
+        {
+            _remoteManager._clientConnectionId = null;
+            _remoteManager.ChangeState("Disconnected", false);
+            await base.OnDisconnectedAsync(exception);
         }
     }
 }
