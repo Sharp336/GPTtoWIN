@@ -11,6 +11,60 @@ const MAX_RECONNECT_ATTEMPTS = 12; // Максимум 12 попыток в те
 let generationStatus = "finished"; // Изначально устанавливаем статус как "finished"
 var isAutoSendOn = false;
 
+try {
+    console.log("Loading SignalR...");
+    const signalR = window.signalR;
+
+    if (!signalR) {
+        throw new Error('SignalR library failed to load.');
+    }
+
+    // Создайте соединение
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl("http://localhost:5005/chathub", { withCredentials: false })
+        .configureLogging(signalR.LogLevel.Information)
+        .build();
+
+    // Определите методы, которые могут быть вызваны сервером
+    connection.on("ClientMethod", (message) => {
+        console.log(`Client method called with message: ${message}`);
+        // Реализуйте логику для обработки вызова метода
+        // Здесь не нужно ничего возвращать
+    });
+
+    // Начните соединение
+    connection.start().then(async () => {
+        console.log("SignalR connected");
+
+        // Пример вызова метода RPC на сервере
+        const echoResponse = await connection.invoke("Echo", "Test message");
+        console.log(`Echo response: ${echoResponse}`);
+
+        // Пример вызова метода RPC на клиенте с сервера
+        await connection.invoke("CallClientMethod", "Message to client");
+        console.log('Client method invoked from server.');
+
+        // Функция для отправки команд на сервер
+        function SendCommand(type, content) {
+            connection.invoke("SendMessage", "ChromeExtension", JSON.stringify({ type, content }))
+                .catch(err => console.error(err.toString()));
+        }
+
+        // Пример использования SendCommand
+        SendCommand("commandType", "commandContent");
+
+    }).catch(err => {
+        console.error("Error connecting to SignalR", err);
+    });
+
+} catch (error) {
+    console.error('Error during SignalR setup:', error);
+}
+
+
+
+
+
 function SetConnectionStatus(status) {
     console.log(`Setting connection status to: ${status}`);
     localStorage.setItem('ConnectionStatus', status);

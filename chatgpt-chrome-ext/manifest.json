@@ -1,32 +1,33 @@
-
 {
-  "manifest_version": 3,
-  "name": "GPToWIN",
-  "version": "1.0",
-  "description": "Расширение для chrome, работающее в паре с десктопным приложением GPToWIN",
-  "permissions": [
-    "activeTab",
-    "storage",
-    "scripting",
-    "tabs"
-  ],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": [ "https://chatgpt.com/*" ],
-      "js": [ "content.js" ]
-    }
-  ],
-  "web_accessible_resources": [{
-    "matches": ["<all_urls>"],
-    "resources": ["lib/chatgpt.js"]
-  }],
-  "action": {
-    "default_popup": "index.html"
-  },
-  "host_permissions": [
-    "https://chat.openai.com/*"
-  ]
+    "manifest_version": 3,
+    "name": "GPToWIN",
+    "version": "1.0",
+    "description": "Расширение для chrome, работающее в паре с десктопным приложением GPToWIN",
+    "permissions": [
+        "activeTab",
+        "storage",
+        "scripting",
+        "tabs"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": ["https://chatgpt.com/*"],
+            "js": ["lib/signalr.js", "content.js"]
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "matches": ["<all_urls>"],
+            "resources": ["lib/signalr.js"]
+        }
+    ],
+    "action": {
+        "default_popup": "index.html"
+    },
+    "host_permissions": [
+        "https://chat.openai.com/*"
+    ]
 }

@@ -246,7 +246,7 @@ namespace wtp.Ui
                 .AddArgument("conversationId", 9813)
                 .AddText($"WS port is: {_remoteManager.WsPort}")
                 .AddText("Check this out, The Enchantments in Washington!");
-            
+
             terminalControl.Focus();
         }
 
@@ -319,14 +319,14 @@ namespace wtp.Ui
         private void TypeRecievedManuallyTab_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
-            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_remoteManager.LastRecievedMessage, false);
+            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_remoteManager.LastRecieved, false);
             terminalControl.Focus();
         }
 
         private void ExecuteManuallyTab_Click(object sender, EventArgs e)
         {
             var tab = sender as TabDataItem;
-            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_remoteManager.LastRecievedMessage, true);
+            if (tab != null && !tab.IsDisabled) terminalControl.TypeAndMaybeExecute(_remoteManager.LastRecieved, true);
             terminalControl.Focus();
         }
 

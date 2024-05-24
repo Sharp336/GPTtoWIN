@@ -10,7 +10,7 @@ namespace wtp
         public bool AllowTransparancy { get; set; }
         public int Columns { get; set; } = 82;
         public int Rows { get; set; } = 17;
-        public int Port { get; set; } = 5001;
+        public int Port { get; set; } = 5005;
         public string DefaultProfileName { get; set; } = "Default profile";
         public List<Profile> Profiles { get; set; } = new List<Profile>() ;
 
