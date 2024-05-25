@@ -169,6 +169,7 @@ namespace wtp.Remote
         {
             Debug.WriteLine("GetChatDataFromClient called");
             var hubContext = _host.Services.GetService<IHubContext<ChatHub>>();
+            Debug.WriteLine("hubContext recievbed");
             if (hubContext != null && !string.IsNullOrEmpty(_clientConnectionId))
             {
                 try
@@ -180,6 +181,7 @@ namespace wtp.Remote
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Failed to call client method: {ex.Message}");
+                    Debug.WriteLine($"Exception details: {ex}");
                     return null;
                 }
             }
@@ -189,6 +191,7 @@ namespace wtp.Remote
                 return null;
             }
         }
+
     }
 
     public class ChatHub : Hub

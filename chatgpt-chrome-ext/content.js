@@ -48,8 +48,10 @@ function initializeSignalR(signalR) {
     });
 
     connection.on("getChatData", async () => {
+        console.log('getChatData called from server')
         let data = await chatgpt.getChatData();
-        return data;
+        console.log('getChatData returns data:\n' + data )
+        return JSON.stringify(data);
     });
 
 
