@@ -57,7 +57,13 @@ namespace wtp
                 }
                 else
                 {
-                    Config.Profiles.Add(new Profile() { ProfileName = "Default profile", PromptRegexps = new List<PromptRegexp> { new PromptRegexp() { Name = "Windows default", Regex = @"[a-zA-Z]:\\[^>]+>" }, new PromptRegexp() { Name = "Yes/No", Regex = @".*\(Yes\/No\)" } } });
+                    Config.Profiles.Add(new Profile() { 
+                        ProfileName = "Default profile", 
+                        PromptRegexps = new List<PromptRegexp> { 
+                            new PromptRegexp() { Name = "Windows default", Regex = @"[a-zA-Z]:\\[^>]+>" }, 
+                            new PromptRegexp() { Name = "Yes/No", Regex = @".*\(Yes\/No\)" } 
+                        } 
+                    });
                     Save(); // Файл конфигурации не существует, создаем его с дефолтными значениями
                 }
             }

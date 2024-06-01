@@ -6,7 +6,19 @@ const MAX_RECONNECT_ATTEMPTS = 12; // 1 minute
 let connection = null;
 let keepAliveInterval = null;
 let reconnectAttempts = 0;
-let isAutoSendOn = false;
+
+const methods = [
+    'detectLanguage', 'executeCode', 'generateRandomIP', 'get', 'getUserLanguage', 'isChromium',
+    'isFirefox', 'isFullScreen', 'isLoaded', 'isMobileDevice', 'printAllFunctions', 'randomFloat',
+    'renderHTML', 'sentiment', 'suggest', 'summarize', 'translate', 'uuidv4', 'activateDarkMode',
+    'activateLightMode', 'isDarkMode', 'isLightMode', 'toggleScheme', 'alert', 'notify',
+    'getAccessToken', 'getAccountDetails', 'logout', 'askAndGetReply', 'clearChats', 'exportChat',
+    'getChatData', 'getChatInput', 'getLastPrompt', 'getLastResponse', 'getResponse',
+    'getResponseFromAPI', 'getResponseFromDOM', 'isIdle', 'regenerate', 'resend', 'scrollToBottom',
+    'send', 'sendInNewChat', 'shareChat', 'speak', 'startNewChat', 'stop', 'getChatBox',
+    'getContinueGeneratingButton', 'getNewChatLink', 'getRegenerateButton', 'getSendButton',
+    'getStopGeneratingButton', 'reloadPage'
+];
 
 
 // Load SignalR and initialize connection
@@ -37,23 +49,70 @@ function initializeSignalR(signalR) {
         .configureLogging(signalR.LogLevel.Information)
         .build();
 
-    connection.on("ClientMethod", (message) => {
-        console.log(`Client method called with message: ${message}`);
-        // Handle client method call from server
-    });
-
     connection.on("ReceiveMessage", (user, message) => {
         console.log(`Received message: ${message}`);
         handleReceivedMessage(message);
     });
 
-    connection.on("getChatData", async () => {
-        console.log('getChatData called from server')
-        let data = await chatgpt.getChatData();
-        console.log('getChatData returns data:\n' + data )
-        return JSON.stringify(data);
-    });
 
+
+    methods.forEach(method => {
+        connection.on(method, async (argObj) => {
+            if (method === 'askAndGetReply') {
+                // Custom method for askAndGetReply
+                let prompt = argObj.args[0];
+                try {
+                    await chatgpt.send(prompt); // Insert the prompt and send it
+
+                    // Wait for the generation to start
+                    const generationStarted = await waitForGenerationToStart();
+                    if (!generationStarted) {
+                        throw new Error('Generation did not start within the expected time frame.');
+                    }
+
+                    // Wait for the generation to complete
+                    await chatgpt.isIdle();
+
+                    const response = await chatgpt.getLastResponse(); // Get the last response
+                    if (response === null || response === undefined) {
+                        return JSON.stringify({ message: "No data returned", value: response });
+                    }
+                    console.log(`askAndGetReply returns data:\n`, response);
+                    return JSON.stringify(response); // Serialize result to string
+                } catch (error) {
+                    console.error(`Error in askAndGetReply:`, error);
+                    return JSON.stringify({ error: error.message });
+                }
+
+            } else if (method === 'reloadPage') {
+                // Custom method for reloading the page
+                try {
+                    reloadPage();
+                    return JSON.stringify({ message: "Page reloaded successfully" });
+                } catch (error) {
+                    console.error(`Error in reloadPage:`, error);
+                    return JSON.stringify({ error: error.message });
+                }
+            } else if (typeof chatgpt[method] === 'function') {
+                let result;
+                console.log(`Received arguments for ${method}:`, argObj);
+                try {
+                    result = await chatgpt[method](...(argObj.args || []));
+                    if (result === null || result === undefined) {
+                        result = { message: "No data returned", value: result };
+                    }
+                    console.log(`${method} returns data:\n`, result);
+                    return JSON.stringify(result); // Serialize result to string
+                } catch (error) {
+                    console.error(`Error in ${method}:`, error);
+                    return JSON.stringify({ error: error.message });
+                }
+            } else {
+                console.error(`Method ${method} does not exist on chatgpt`);
+                return JSON.stringify({ error: `Method ${method} does not exist on chatgpt` });
+            }
+        });
+    });
 
     connection.onclose(async () => {
         console.log("SignalR connection closed");
@@ -164,46 +223,73 @@ function updateLastReceivedMessage(newValue) {
 }
 
 // Insert and possibly send message
+async function waitForGenerationToStart(timeout = 20000) {
+    return new Promise((resolve) => {
+        const start = Date.now();
+
+        (function checkIsGenerating() {
+            if (chatgpt.getStopGeneratingButton()) {
+                resolve(true);
+            } else if (Date.now() - start > timeout) {
+                resolve(false);
+            } else {
+                setTimeout(checkIsGenerating, 200);
+            }
+        })();
+    });
+}
+
 async function insertAndPossiblySend(message, autoTell) {
     console.log('insertAndPossiblySend called, autoTell = ' + autoTell + '\nmessage: ' + message);
 
-    const performInsertAndSend = async () => {
-        console.log('performInsertAndSend called');
+    const performInsert = async () => {
+        console.log('performInsert called');
         const chatBox = chatgpt.getChatBox();
-        const sendButton = chatgpt.getSendButton();
-
-        if (chatBox && sendButton) {
-            sendButton.removeAttribute('disabled');
+        if (chatBox) {
             chatBox.value = message;
             chatBox.dispatchEvent(new Event('input', { bubbles: true }));
-            if (autoTell && !sendButton.disabled) {
+        }
+    };
+
+    const performSend = async () => {
+        const sendButton = chatgpt.getSendButton();
+        if (sendButton) {
+            sendButton.removeAttribute('disabled');
+            if (!sendButton.disabled) {
                 sendButton.click();
             }
         }
     };
 
-    const isIdle = await chatgpt.isIdle();
-    console.log('chatgpt.isIdle() = ' + isIdle);
-    if (isIdle) {
-        performInsertAndSend();
-    } else {
-        const handleStatusChange = async (event) => {
-            if (await chatgpt.isIdle()) {
-                performInsertAndSend();
-                document.body.removeEventListener("generationStatusChanged", handleStatusChange);
-            }
-        };
-        document.body.addEventListener("generationStatusChanged", handleStatusChange);
+    await performInsert();
+
+    if (autoTell) {
+        const isIdle = await chatgpt.isIdle();
+        console.log('chatgpt.isIdle() = ' + isIdle);
+        if (isIdle) {
+            await performSend();
+        } else {
+            const handleStatusChange = async (event) => {
+                if (await chatgpt.isIdle()) {
+                    await performSend();
+                    document.body.removeEventListener("generationStatusChanged", handleStatusChange);
+                }
+            };
+            document.body.addEventListener("generationStatusChanged", handleStatusChange);
+        }
     }
 }
 
+
+
 // Add send button to code blocks
 function appendSendButton(container) {
-    const languageElement = container.querySelector('span:first-child');
+    const languageElement = container.querySelector('div:first-child span'); // Correctly target the language indicator
     const allowedLanguages = JSON.parse(localStorage.getItem('allowedLanguages') || '[]');
     const language = languageElement ? languageElement.textContent.trim().toLowerCase() : '';
 
     if (!allowedLanguages.includes(language)) {
+        console.log(`Language ${language} is not in the allowed languages list.`);
         return;
     }
 
@@ -222,13 +308,14 @@ function appendSendButton(container) {
 
         sendButton.addEventListener('click', () => {
             const codeContent = container.querySelector('code').textContent;
-            SendCommand( codeContent);
+            SendCommand(codeContent);
         });
 
         // Append the send button next to the copy button
         copyButton.parentNode.parentNode.insertBefore(sendButton, copyButton.nextSibling);
     }
 }
+
 
 
 
@@ -285,10 +372,27 @@ function addTimerToCodeBlock(codeBlock) {
     const startTimer = () => {
         intervalId = setInterval(() => {
             counter--;
-            if (connection && connection.state === signalR.HubConnectionState.Connected && counter === 0 && !isCancelled) {
+            if (isCancelled) {
+                timerSpan.textContent = 'Cancelled';
                 clearInterval(intervalId);
-                SendCommand( codeBlock.textContent.trim());
+            } else if (connection && connection.state === signalR.HubConnectionState.Connected && counter === 0) {
+                clearInterval(intervalId);
+                SendCommand(codeBlock.textContent.trim());
                 timerSpan.textContent = 'Sent';
+                setTimeout(() => {
+                    timerSpan.remove();
+                    cancelButton.remove();
+                    if (!sendButton || !(sendButton instanceof Node)) {
+                        sendButton = document.createElement("button");
+                        sendButton.textContent = "Send";
+                        sendButton.className = "send-button";
+                        sendButton.style = "margin-left: 10px;padding-left: 10px;";
+                    }
+                    controlPanel.appendChild(sendButton);
+                }, 2000);
+            } else if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
+                timerSpan.textContent = 'No connection';
+                clearInterval(intervalId);
                 setTimeout(() => {
                     timerSpan.remove();
                     cancelButton.remove();
@@ -322,6 +426,7 @@ function addTimerToCodeBlock(codeBlock) {
         }
     });
 }
+
 
 // Disable auto-send for all code blocks
 function disableAutoSendForAllCodeBlocks() {
@@ -360,6 +465,15 @@ function createSettingsPopup() {
 
     if (document.querySelector('#my-settings-popup')) return;
 
+    const defaultLanguages = 'cmd, bash, shell';
+    let allowedLanguages = localStorage.getItem('allowedLanguages');
+    if (!allowedLanguages) {
+        localStorage.setItem('allowedLanguages', JSON.stringify(defaultLanguages.split(', ')));
+        allowedLanguages = defaultLanguages;
+    } else {
+        allowedLanguages = JSON.parse(allowedLanguages).join(', ');
+    }
+
     const popupHTML = `
     <div id="my-settings-popup" style="display: none; position: fixed;top: 20%;left: 53%;transform: translate(-50%, -10%);z-index: 1000;background-color: #2f2f2f; padding: 20px;border-radius: 8px; border-width: 3px; border-color: #171717; color: white;">
         <h3>Connection Status:</h3>
@@ -378,11 +492,10 @@ function createSettingsPopup() {
         <button id="sendMessageButton" style="margin-left: 10px;">Send</button>
 
         <h3>Allowed Languages:</h3>
-        <input type="text" id="allowedLanguagesInput" placeholder="e.g., javascript, python" style="color: black;">
+        <input type="text" id="allowedLanguagesInput" placeholder="e.g., javascript, python" style="color: black;" value="${allowedLanguages}">
         <button id="saveLanguagesButton" style="margin-left: 10px;">Save</button>
     </div>
 `;
-
 
     document.body.insertAdjacentHTML('beforeend', popupHTML);
 
@@ -392,8 +505,6 @@ function createSettingsPopup() {
     document.getElementById('autoInsertCheckbox').checked = localStorage.getItem('autoInsert') === 'true';
     document.getElementById('autoTellCheckbox').checked = localStorage.getItem('autoTell') === 'true';
     document.getElementById('autoSendCheckbox').checked = localStorage.getItem('autoSend') === 'true';
-
-    document.getElementById('allowedLanguagesInput').value = JSON.parse(localStorage.getItem('allowedLanguages') || '[]').join(', ');
 
     document.getElementById('autoTellCheckbox').disabled = !document.getElementById('autoInsertCheckbox').checked;
 
@@ -421,7 +532,7 @@ function createSettingsPopup() {
 
     document.getElementById('sendMessageButton').addEventListener('click', () => {
         const messageToSend = document.getElementById('messageInput').value;
-        SendCommand( messageToSend);
+        SendCommand(messageToSend);
     });
 
     document.getElementById('saveLanguagesButton').addEventListener('click', () => {
@@ -455,9 +566,10 @@ const observer = new MutationObserver((mutationsList) => {
                     if (node.tagName === 'PRE') {
                         const codeBlock = node.querySelector('code.hljs');
                         if (codeBlock) {
-                            console.log('Обработка нового сообщения');
+                            const autoSend = localStorage.getItem('autoSend') === 'true';
+                            console.log('Обработка нового сообщения, autoSend = ' + autoSend);
                             appendSendButton(node); // Add send button to new message
-                            if (isAutoSendOn) {
+                            if (autoSend) {
                                 addTimerToCodeBlock(codeBlock); // Add timer if auto-send is enabled
                             }
                         }
@@ -521,6 +633,13 @@ async function updateGenerationStatus() {
     console.log(`Changed generation status to: ${status}`);
     document.body.dispatchEvent(new CustomEvent("generationStatusChanged", { detail: { status } }));
 }
+
+async function reloadPage() {
+    console.log('Reloading the page with reloadPage().');
+    location.reload();
+}
+
+
 
 // Add send button to all existing code blocks on page load
 addSendButtonToAllCodeBlocks();

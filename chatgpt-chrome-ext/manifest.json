@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "GPToWIN",
     "version": "1.0",
-    "description": "Расширение для chrome, работающее в паре с десктопным приложением GPToWIN",
+    "description": "Расширение для chrome, предоставляющее бесплатный локальный rpc-api ChatGPT с помощью SignalR и ChatGPT.JS",
     "permissions": [
         "activeTab",
         "storage",

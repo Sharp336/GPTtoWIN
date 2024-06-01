@@ -70,7 +70,6 @@ namespace wtp.Ui
                     Debug.WriteLine($"Changed profile to {_currentProfile.ProfileName}");
                     terminalControl.PromtRegexList = _currentProfile.PromptRegexps;
                     CreateSession(_currentProfile);
-                    // Вы можете добавить здесь дополнительную логику при смене профиля
                 }
             }
         }
@@ -220,7 +219,7 @@ namespace wtp.Ui
 
         private void AddTabs()
         {
-             TabDataItem TestTab = new TabDataItem() { Title = "Test" };
+            TabDataItem TestTab = new TabDataItem() { Title = "Test" };
             TestTab.Click += Test_Click;
             _tabs.Add(TestTab);
 
@@ -248,10 +247,30 @@ namespace wtp.Ui
         {
             Dispatcher.InvokeAsync(async () =>
             {
-                var result = await _remoteManager.GetChatDataFromClient();
-                Debug.WriteLine(result);
+                var methods = new List<(string, object[])>
+    {
+        ("getChatData", new object[] { "latest", "all" }),
+        //("getChatData", new object[] { "active", "id" }),
+        //("getChatData", new object[] { "active", "title" }),
+        //("getLastPrompt", new object[] { }),
+        //("getLastResponse", new object[] { }),
+        //("getSendButton", new object[] { }),
+        //("getChatBox", new object[] { }),
+        //("getRegenerateButton", new object[] { }),
+        //("isIdle", new object[] { }),
+        //("getContinueGeneratingButton", new object[] { }),
+        //("getStopGeneratingButton", new object[] { }),
+        //("askAndGetReply", new object[] {"Тест" }),
+        ("reloadPage", new object[] { }),
+
+    };
+
+                foreach (var method in methods)
+                {
+                    var result = await _remoteManager.CallChatGPTMethod(method.Item1, method.Item2);
+                    Debug.WriteLine($"{method.Item1} returns:\n{result}\n-----");
+                }
             });
-            
 
             terminalControl.Focus();
         }
@@ -274,6 +293,16 @@ namespace wtp.Ui
         //    }
         //}
 
+
+
+        private void CreateSession(Profile profile)
+        {
+            var ExpandedProfile = ExpandVariables(profile);
+            var session = _sessionMgr.CreateSession(_terminalSize, ExpandedProfile);
+            session.TitleChanged += OnSessionTitleChanged;
+            session.Finished += OnSessionFinished;
+            ChangeSession(session);
+        }
 
         private void NewSessionTab_Click(object sender, EventArgs e)
         {
@@ -393,18 +422,6 @@ namespace wtp.Ui
             profile.CurrentWorkingDirectory = data.CurrentWorkingDirectory;
             profile.EnvironmentVariables = data.Environment;
             CreateSession(profile);
-        }
-
-        private void CreateSession(Profile profile)
-        {
-            var ExpandedProfile = ExpandVariables(profile);
-            var session = _sessionMgr.CreateSession(_terminalSize, ExpandedProfile);
-            session.TitleChanged += OnSessionTitleChanged;
-            session.Finished += OnSessionFinished;
-
-            ChangeSession(session);
-
-
         }
 
         private void ChangeSession(TerminalSession session)

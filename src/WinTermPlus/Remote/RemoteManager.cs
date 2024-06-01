@@ -117,7 +117,9 @@ namespace wtp.Remote
                                                  .AllowAnyHeader();
                                       });
                                   });
-                                  services.AddSignalR();
+                                  services.AddSignalR(e => {
+                                      e.MaximumReceiveMessageSize = 102400000;
+                                  });
                                   services.AddSingleton<RemoteManager>(this); // Register RemoteManager as a singleton
                               })
                               .Configure(app =>
@@ -165,23 +167,21 @@ namespace wtp.Remote
             });
         }
 
-        public async Task<string> GetChatDataFromClient()
+        public async Task<string> CallChatGPTMethod(string methodName, params object[] args)
         {
-            Debug.WriteLine("GetChatDataFromClient called");
+            Debug.WriteLine($"CallChatGPTMethod called for method: {methodName}");
             var hubContext = _host.Services.GetService<IHubContext<ChatHub>>();
-            Debug.WriteLine("hubContext recievbed");
             if (hubContext != null && !string.IsNullOrEmpty(_clientConnectionId))
             {
                 try
                 {
-                    // Invoke the client method and return the result
-                    var result = await hubContext.Clients.Client(_clientConnectionId).InvokeAsync<string>("getChatData", CancellationToken.None);
-                    return result;
+                    var argObj = new { args };
+                    var result = await hubContext.Clients.Client(_clientConnectionId).InvokeAsync<string>(methodName, argObj, CancellationToken.None);
+                    return result; // The result is already a JSON string
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Failed to call client method: {ex.Message}");
-                    Debug.WriteLine($"Exception details: {ex}");
+                    Console.WriteLine($"Failed to call client method {methodName}: {ex.Message}");
                     return null;
                 }
             }
@@ -192,7 +192,12 @@ namespace wtp.Remote
             }
         }
 
+
+
+
     }
+
+
 
     public class ChatHub : Hub
     {
@@ -205,7 +210,6 @@ namespace wtp.Remote
 
         public async Task SendMessage(string user, string message)
         {
-            await Clients.All.SendAsync("ReceiveMessage", user, message);
             _remoteManager.ProcessMessage(message);
         }
 
@@ -214,17 +218,9 @@ namespace wtp.Remote
             return await Task.FromResult($"Echo: {message}");
         }
 
-        public async Task<string> CallClientMethod(string message)
+        public async Task<string> InvokeChatGPTMethod(string methodName, params object[] args)
         {
-            await Clients.Caller.SendAsync("ClientMethod", message);
-            return await Task.FromResult($"Processed message: {message}");
-        }
-
-        // Новый метод для вызова getChatData на клиенте
-        public async Task<string> WaitForMessage()
-        {
-            var message = await _remoteManager.GetChatDataFromClient();
-            return message;
+            return await _remoteManager.CallChatGPTMethod(methodName, args);
         }
 
         // Implement the KeepAlive method
@@ -248,4 +244,6 @@ namespace wtp.Remote
             await base.OnDisconnectedAsync(exception);
         }
     }
+
+
 }
