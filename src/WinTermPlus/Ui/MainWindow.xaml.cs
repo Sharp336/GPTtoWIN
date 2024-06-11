@@ -260,8 +260,8 @@ namespace wtp.Ui
         //("isIdle", new object[] { }),
         //("getContinueGeneratingButton", new object[] { }),
         //("getStopGeneratingButton", new object[] { }),
-        //("askAndGetReply", new object[] {"Тест" }),
-        ("reloadPage", new object[] { }),
+        ("askAndGetReply", new object[] {"Тест" }),
+        //("reloadPage", new object[] { }),
 
     };
 

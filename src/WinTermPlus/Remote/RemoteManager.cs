@@ -66,7 +66,7 @@ namespace wtp.Remote
             StateHasChanged?.Invoke(status, isConnected);
         }
 
-        private async Task StartSignalRServer()
+        public async Task StartSignalRServer()
         {
             Debug.WriteLine("SignalRServer start");
 
